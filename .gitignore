@@ -1,0 +1,36 @@
+# Ignorar archivos compilados de Python
+__pycache__/
+*.pyc
+*.pyd
+*.pyo
+*.egg-info/
+.pytest_cache/
+
+# Entornos virtuales
+venv/
+env/
+.venv/
+
+# Archivos de IDEs
+.vscode/
+.idea/
+.mypy_cache/
+.dmypy.json
+
+# Archivos de logs y base de datos (para desarrollo)
+*.log
+*.sqlite3
+db.sqlite3 # Base de datos SQLite si la usaras
+media/      # Archivos subidos por usuarios
+static_collected/ # Archivos estáticos recolectados
+
+# Node.js / Frontend stuff
+node_modules/
+dist/       # Carpeta de build de Vite
+build/      # Carpeta de build de Create React App o similares
+.env        # Archivos de variables de entorno
+.env.local
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.DS_Store   # Archivos de macOS
