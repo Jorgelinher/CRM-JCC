@@ -15,6 +15,7 @@ import {
 } from '@mui/material';
 import { Edit as EditIcon, ArrowBack as ArrowBackIcon } from '@mui/icons-material';
 import leadsService from '../../services/leads';
+import LeadFormModal from '../../components/leads/LeadFormModal'; // <-- IMPORTAR EL MODAL
 
 function LeadDetailPage() {
   const { id } = useParams();
@@ -23,6 +24,10 @@ function LeadDetailPage() {
   const [actions, setActions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+
+  // Estados para el Modal de Edición
+  const [openLeadFormModal, setOpenLeadFormModal] = useState(false);
+  const [editingLeadId, setEditingLeadId] = useState(null); // Siempre será el 'id' de los params aquí
 
   const fetchLeadAndActions = useCallback(async () => {
     setLoading(true);
@@ -44,6 +49,23 @@ function LeadDetailPage() {
   useEffect(() => {
     fetchLeadAndActions();
   }, [fetchLeadAndActions]);
+
+  // Handlers para el modal
+  const handleOpenEditLeadModal = () => {
+    setEditingLeadId(lead.id); // Asegura que el ID del lead se pase al modal
+    setOpenLeadFormModal(true);
+  };
+
+  const handleCloseLeadFormModal = () => {
+    setOpenLeadFormModal(false);
+    // Opcional: setEditingLeadId(null); si quieres resetearlo
+  };
+
+  const handleLeadSaveSuccess = () => {
+    fetchLeadAndActions(); // Vuelve a cargar los datos del lead si se guardó correctamente
+    handleCloseLeadFormModal(); // Cierra el modal
+  };
+
 
   if (loading) {
     return (
@@ -117,9 +139,9 @@ function LeadDetailPage() {
         <Box sx={{ mt: 3, display: 'flex', justifyContent: 'flex-end' }}>
           <Button
             variant="contained"
-            color="warning"
+            color="warning" // Color de acento para edición
             startIcon={<EditIcon />}
-            onClick={() => navigate(`/leads/${lead.id}/edit`)}
+            onClick={handleOpenEditLeadModal} // <-- AHORA ABRE EL MODAL
           >
             Editar Lead
           </Button>
@@ -168,6 +190,14 @@ function LeadDetailPage() {
           </List>
         )}
       </Paper>
+
+      {/* EL MODAL DE FORMULARIO DE LEADS SE RENDERIZA AQUÍ */}
+      <LeadFormModal
+        open={openLeadFormModal}
+        onClose={handleCloseLeadFormModal}
+        leadId={editingLeadId} // Pasa el ID del lead (de los params) al modal
+        onSaveSuccess={handleLeadSaveSuccess}
+      />
     </Box>
   );
 }

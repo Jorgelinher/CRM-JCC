@@ -1,4 +1,5 @@
 // frontend/crm_frontend/src/theme/theme.js
+
 import { createTheme } from '@mui/material/styles';
 
 const theme = createTheme({
@@ -15,7 +16,6 @@ const theme = createTheme({
       dark: '#E0E0E0',  // Un gris más oscuro para bordes o divisores
       contrastText: '#34495E', // Texto oscuro sobre el secundario
     },
-    // Usaremos el color 'warning' de MUI como nuestro color de 'Acento'
     warning: {
       main: '#FBBF24', // Amarillo Ámbar Vibrante (Interacción, Énfasis)
       light: '#FFD700',
@@ -38,13 +38,13 @@ const theme = createTheme({
     },
   },
   typography: {
-    fontFamily: [ // Fuentes para un look moderno y limpio (ej. Montserrat o Roboto si está disponible)
+    fontFamily: [
       'Roboto',
       'Arial',
       'sans-serif',
     ].join(','),
     h4: {
-      fontWeight: 600, // Semi-negrita para títulos importantes
+      fontWeight: 600,
       color: '#34495E',
     },
     h6: {
@@ -55,19 +55,19 @@ const theme = createTheme({
       color: '#34495E',
     },
     button: {
-      textTransform: 'none', // Botones con texto normal, no mayúsculas por defecto
+      textTransform: 'none',
     }
   },
   components: {
     MuiButton: {
       styleOverrides: {
         root: {
-          borderRadius: 8, // Bordes ligeramente redondeados para botones
+          borderRadius: 8,
         },
         containedPrimary: {
-          boxShadow: 'none', // Sombra sutil o ninguna para un look minimalista
+          boxShadow: 'none',
           '&:hover': {
-            backgroundColor: '#142960', // Un poco más oscuro en hover
+            backgroundColor: '#142960',
             boxShadow: 'none',
           },
         },
@@ -77,7 +77,7 @@ const theme = createTheme({
           '&:hover': {
             borderColor: '#1E3A8A',
             color: '#1E3A8A',
-            backgroundColor: 'rgba(30, 58, 138, 0.04)', // Ligero fondo primario en hover
+            backgroundColor: 'rgba(30, 58, 138, 0.04)',
           },
         },
         text: {
@@ -92,7 +92,7 @@ const theme = createTheme({
       styleOverrides: {
         root: {
           '& .MuiOutlinedInput-root': {
-            borderRadius: 8, // Bordes ligeramente redondeados para campos de texto
+            borderRadius: 8,
           },
         },
       },
@@ -100,32 +100,58 @@ const theme = createTheme({
     MuiPaper: {
       styleOverrides: {
         root: {
-          boxShadow: '0px 4px 10px rgba(0, 0, 0, 0.05)', // Sombra sutil para papel/tarjetas
+          boxShadow: '0px 4px 10px rgba(0, 0, 0, 0.05)',
         },
       },
     },
-    MuiTableHead: {
+    // AJUSTE PARA EL ENCABEZADO DE LA APLICACIÓN (AppBar) - ¡REVERTIDO A BLANCO!
+    MuiAppBar: {
       styleOverrides: {
         root: {
-          backgroundColor: '#F8F9FA', // Fondo para la cabecera de la tabla
-          '& .MuiTableCell-root': {
-            fontWeight: 600, // Negrita para encabezados de columna
-            color: '#34495E', // Color de texto para encabezados de columna
-          },
+          backgroundColor: '#FFFFFF', // <-- Fondo blanco (o tu color secundario)
+          color: '#34495E', // <-- Texto oscuro para contraste
+          boxShadow: '0px 2px 4px rgba(0, 0, 0, 0.05)', // Sombra sutil
+        },
+      },
+    },
+    // AJUSTE PARA EL ENCABEZADO DE LAS TABLAS (TableHead) - ¡ESTO SE MANTIENE AZUL OSCURO!
+MuiTableHead: {
+  styleOverrides: {
+    root: {
+      backgroundColor: '#1E3A8A', // <-- Fondo azul oscuro (Tu color Primario)
+      '& .MuiTableCell-root': {
+        fontWeight: 600,
+        color: '#FFFFFF', // <-- Texto blanco para contraste
+        padding: '12px 16px', // Ajusta el padding para un mejor espaciado en encabezados
+      },
+    },
+  },
+},
+MuiTableCell: { // Ajustes generales para todas las celdas de tabla (head y body)
+      styleOverrides: {
+        root: {
+          padding: '10px 16px', // Padding uniforme para todas las celdas
+          borderColor: '#E0E0E0', // Color de borde suave para las celdas
+        },
+        head: { // <--- ¡NUEVA REGLA ESPECÍFICA PARA LAS CELDAS DE LA CABECERA!
+          backgroundColor: '#1E3A8A', // <-- Fondo azul oscuro para las celdas de la cabecera
+          color: '#FFFFFF', // <-- Texto blanco para contraste
+          fontWeight: 600,
+          padding: '12px 16px', // Ajusta el padding para un mejor espaciado en encabezados
         },
       },
     },
     MuiTableRow: {
       styleOverrides: {
         root: {
-          '&:nth-of-type(odd)': { // Efecto cebra para filas impares
+          '&:nth-of-type(odd)': {
             backgroundColor: '#FFFFFF',
           },
-          '&:nth-of-type(even)': { // Efecto cebra para filas pares (gris muy claro)
-            backgroundColor: '#F8F9FA',
+          '&:nth-of-type(even)': {
+            backgroundColor: '#F8F9FA', // Alterna con el gris ultra-claro
           },
-          '&:hover': { // Sutil hover para filas
-            backgroundColor: '#E0E0E0 !important',
+          '&:hover': {
+            backgroundColor: '#E0E0E0 !important', // Gris claro en hover
           },
         },
       },
@@ -133,43 +159,34 @@ const theme = createTheme({
     MuiLink: {
       styleOverrides: {
         root: {
-          color: '#1E3A8A', // Enlaces en color primario
-          textDecoration: 'none', // Sin subrayado por defecto
+          color: '#1E3A8A',
+          textDecoration: 'none',
           '&:hover': {
-            textDecoration: 'underline', // Subrayado en hover
+            textDecoration: 'underline',
           },
         },
       },
     },
-    MuiAppBar: { // Ajustes para la barra de navegación superior (Header)
-      styleOverrides: {
-        root: {
-          backgroundColor: '#FFFFFF', // Fondo blanco para la AppBar
-          boxShadow: '0px 2px 4px rgba(0, 0, 0, 0.05)', // Sombra sutil
-          color: '#34495E', // Color de texto por defecto
-        },
-      },
-    },
-    MuiDrawer: { // Ajustes para el Drawer lateral (Sidebar)
+    MuiDrawer: {
       styleOverrides: {
         paper: {
-          backgroundColor: '#FFFFFF', // Fondo blanco para el Drawer
-          boxShadow: '0px 4px 10px rgba(0, 0, 0, 0.05)', // Sombra sutil
+          backgroundColor: '#FFFFFF',
+          boxShadow: '0px 4px 10px rgba(0, 0, 0, 0.05)',
         },
       },
     },
-    MuiListItemButton: { // Botones en el sidebar (ej. en MainLayout)
+    MuiListItemButton: {
         styleOverrides: {
             root: {
-                '&.Mui-selected': { // Estilo para el item de navegación activo/seleccionado
-                    backgroundColor: 'rgba(30, 58, 138, 0.1)', // Fondo ligeramente azulado
-                    color: '#1E3A8A', // Color de texto primario
+                '&.Mui-selected': {
+                    backgroundColor: 'rgba(30, 58, 138, 0.1)',
+                    color: '#1E3A8A',
                     '&:hover': {
                         backgroundColor: 'rgba(30, 58, 138, 0.15)',
                     },
                 },
                 '&:hover': {
-                    backgroundColor: '#E0E0E0', // Gris muy claro en hover
+                    backgroundColor: '#E0E0E0',
                 },
             },
         },
