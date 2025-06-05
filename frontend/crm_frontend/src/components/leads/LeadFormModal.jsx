@@ -1,6 +1,4 @@
-// frontend/crm_frontend/src/components/leads/LeadFormModal.jsx
 import React, { useEffect, useState } from 'react';
-// Removido: useParams, useNavigate (porque ya no es una página con rutas)
 import { useForm } from 'react-hook-form';
 import {
   Box,
@@ -13,34 +11,69 @@ import {
   FormControl,
   InputLabel,
   Select,
-  Dialog,        // <-- NUEVA IMPORTACIÓN
-  DialogTitle,   // <-- NUEVA IMPORTACIÓN
-  DialogContent, // <-- NUEVA IMPORTACIÓN
-  DialogActions, // <-- NUEVA IMPORTACIÓN
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Grid,
 } from '@mui/material';
 import leadsService from '../../services/leads';
 
-// Opciones de tipificación (debe coincidir con tu modelo de Django)
 const TIPIFICACION_CHOICES = [
-  { value: 'Nuevo', label: 'Nuevo' },
-  { value: 'Contactado', label: 'Contactado' },
-  { value: 'Interesado', label: 'Interesado' },
-  { value: 'No Contesta', label: 'No Contesta' },
-  { value: 'Descartado', label: 'Descartado' },
-  { value: 'Cita Agendada', label: 'Cita Agendada' },
-  { value: 'Cita Confirmada', label: 'Cita Confirmada' },
-  { value: 'Cita Realizada', label: 'Cita Realizada' },
-  { value: 'Seguimiento', label: 'Seguimiento' },
+  { value: '', label: 'Seleccionar Tipificación' },
+  { value: 'NO CONTESTA', label: 'NO CONTESTA' },
+  { value: 'DATO FALSO', label: 'DATO FALSO' },
+  { value: 'NO INTERESADO - POR PROYECTO', label: 'NO INTERESADO - POR PROYECTO' },
+  { value: 'FUERA DE SERVICIO', label: 'FUERA DE SERVICIO' },
+  { value: 'NO REGISTRADO', label: 'NO REGISTRADO' },
+  { value: 'VOLVER A LLAMAR', label: 'VOLVER A LLAMAR' },
+  { value: 'APAGADO', label: 'APAGADO' },
+  { value: 'SEGUIMIENTO', label: 'SEGUIMIENTO' },
+  { value: 'NO INTERESADO - MEDIOS ECONOMICOS', label: 'NO INTERESADO - MEDIOS ECONOMICOS' },
+  { value: 'CITA - ZOOM', label: 'CITA - ZOOM' },
+  { value: 'NO INTERESADO - UBICACION', label: 'NO INTERESADO - UBICACION' },
+  { value: 'NO INTERESADO - YA COMPRO EN OTRO LUGAR', label: 'NO INTERESADO - YA COMPRO EN OTRO LUGAR' },
+  { value: 'INFORMACION WSP/CORREO', label: 'INFORMACION WSP/CORREO' },
+  { value: 'TERCERO', label: 'TERCERO' },
+  { value: 'NO INTERESADO - LEGALES', label: 'NO INTERESADO - LEGALES' },
+  { value: 'CITA - SALA', label: 'CITA - SALA' },
+  { value: 'CITA - PROYECTO', label: 'CITA - PROYECTO' },
+  { value: 'CITA - POR CONFIRMAR', label: 'CITA - POR CONFIRMAR' },
+  { value: 'CITA - HxH', label: 'CITA - HxH' },
+  { value: 'YA ASISTIO', label: 'YA ASISTIO' },
+  { value: 'DUPLICADO', label: 'DUPLICADO' },
+  { value: 'YA ES PROPIETARIO', label: 'YA ES PROPIETARIO' },
+  { value: 'AGENTE INMOBILIARIO', label: 'AGENTE INMOBILIARIO' },
+  { value: 'GESTON WSP', label: 'GESTON WSP' },
+  { value: 'NO CALIFICA', 'label': 'NO CALIFICA' },
 ];
 
-// Este componente ahora acepta props: open, onClose, leadId (para editar), onSaveSuccess (callback)
-function LeadFormModal({ open, onClose, leadId, onSaveSuccess }) {
-  const [loadingForm, setLoadingForm] = useState(true); // Para el spinner cuando carga datos del lead en edición
-  const [submitting, setSubmitting] = useState(false); // Para el spinner del botón al guardar
-  const [error, setError] = useState('');
-  const [asesores, setAsesores] = useState([]); // Para el selector de asesor
+const MEDIO_CAPTACION_CHOICES = [
+  { value: '', label: 'Seleccione un Medio' },
+  { value: 'Campo (Centros Comerciales)', label: 'Campo (Centros Comerciales)' },
+  { value: 'Redes Sociales (Facebook)', label: 'Redes Sociales (Facebook)' },
+  { value: 'Redes Sociales (Instagram)', label: 'Redes Sociales (Instagram)' },
+  { value: 'Redes Sociales (WhatsApp)', label: 'Redes Sociales (WhatsApp)' },
+  { value: 'Referidos', label: 'Referidos' },
+];
 
-  const { register, handleSubmit, reset, formState: { errors } } = useForm();
+
+function LeadFormModal({ open, onClose, leadId, onSaveSuccess }) {
+  const [loadingForm, setLoadingForm] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState('');
+  const [asesores, setAsesores] = useState([]);
+
+  // MODIFICACIÓN: Inicializar useForm con defaultValues para asegurar que tipificacion siempre inicia como ''
+  const { register, handleSubmit, reset, formState: { errors }, watch } = useForm({
+    defaultValues: {
+      tipificacion: '', // Valor por defecto seguro para el campo de selección
+    }
+  });
+
+  // Esto es para asegurar que el Select de MUI siempre tenga un valor controlado y no 'undefined'
+  const watchedTipificacion = watch('tipificacion');
+
 
   const fetchAsesores = async () => {
     try {
@@ -53,23 +86,28 @@ function LeadFormModal({ open, onClose, leadId, onSaveSuccess }) {
   };
 
   useEffect(() => {
-    if (!open) { // Si el modal se cierra, reseteamos el formulario y los errores
+    if (!open) {
+      // Al cerrar el modal, resetear el formulario. Esto lo devolverá a los defaultValues
+      // o a los valores pasados si el modal se reutiliza para un nuevo lead.
       reset();
       setError('');
-      setLoadingForm(true); // Preparar para la próxima apertura
+      setLoadingForm(true);
       return;
     }
 
-    fetchAsesores(); // Cargar asesores cada vez que se abre el modal
+    fetchAsesores();
 
     if (leadId) {
-      // Si estamos en modo edición (se pasó un leadId), cargamos los datos del lead
       const fetchLead = async () => {
         try {
           const leadData = await leadsService.getLeadById(leadId);
-          reset({ // 'reset' de react-hook-form para llenar el formulario
+          reset({
             ...leadData,
-            asesor: leadData.asesor ? leadData.asesor.id : '', // Asegura que 'asesor' sea el ID numérico
+            asesor: leadData.asesor ? leadData.asesor.id : '',
+            // Asegurar que tipificacion sea siempre una cadena, recortar espacios y fallar a ''
+            tipificacion: (leadData.tipificacion && typeof leadData.tipificacion === 'string')
+                                ? leadData.tipificacion.trim()
+                                : '',
           });
         } catch (err) {
           setError('Error al cargar los datos del lead.');
@@ -80,15 +118,17 @@ function LeadFormModal({ open, onClose, leadId, onSaveSuccess }) {
       };
       fetchLead();
     } else {
-      // Si es un lead nuevo, reseteamos el formulario a valores por defecto
+      // Para nuevos leads, llamar a reset sin argumentos específicos para tipificacion
+      // ya que defaultValues en useForm ya lo inicializa a ''.
       reset({
         nombre: '', celular: '', proyecto: '', medio: '', distrito: '',
-        tipificacion: 'Nuevo', observacion: '', opc: '', observacion_opc: '',
-        asesor: '', // Deja vacío para 'Sin Asignar'
+        // tipificacion: '' (este campo ya está cubierto por defaultValues en useForm)
+        observacion: '', opc: '', observacion_opc: '',
+        asesor: '',
       });
       setLoadingForm(false);
     }
-  }, [open, leadId, reset]); // Recarga cuando el modal se abre/cierra o cambia el leadId
+  }, [open, leadId, reset]);
 
   const onSubmit = async (data) => {
     setSubmitting(true);
@@ -96,7 +136,7 @@ function LeadFormModal({ open, onClose, leadId, onSaveSuccess }) {
 
     const payload = {
       ...data,
-      asesor: data.asesor || null, // Asegura que el ID del asesor sea null si no se selecciona
+      asesor: data.asesor || null,
     };
 
     try {
@@ -105,8 +145,7 @@ function LeadFormModal({ open, onClose, leadId, onSaveSuccess }) {
       } else {
         await leadsService.createLead(payload);
       }
-      onSaveSuccess(); // Callback para que el componente padre recargue la lista
-      // onClose(); // Esto se llama implícitamente en onSaveSuccess()
+      onSaveSuccess();
     } catch (err) {
       setError('Error al guardar el lead: ' + (err.response?.data?.celular || err.message));
       console.error('Error saving lead:', err.response?.data || err);
@@ -116,7 +155,7 @@ function LeadFormModal({ open, onClose, leadId, onSaveSuccess }) {
   };
 
   return (
-    <Dialog open={open} onClose={onClose} fullWidth maxWidth="md"> {/* Usamos el componente Dialog */}
+    <Dialog open={open} onClose={onClose} fullWidth maxWidth="md">
       <DialogTitle>
         {leadId ? 'Editar Lead' : 'Crear Nuevo Lead'}
       </DialogTitle>
@@ -126,112 +165,137 @@ function LeadFormModal({ open, onClose, leadId, onSaveSuccess }) {
             <CircularProgress />
           </Box>
         ) : (
-          <form onSubmit={handleSubmit(onSubmit)} noValidate> {/* noValidate desactiva la validación HTML5 */}
+          <form onSubmit={handleSubmit(onSubmit)} noValidate>
             {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
 
-            {/* Los campos del formulario son los mismos que antes */}
-            <TextField
-              label="Nombre"
-              variant="outlined"
-              fullWidth
-              margin="normal"
-              {...register('nombre', { required: 'El nombre es requerido' })}
-              error={!!errors.nombre}
-              helperText={errors.nombre?.message}
-            />
-            <TextField
-              label="Celular"
-              variant="outlined"
-              fullWidth
-              margin="normal"
-              {...register('celular', {
-                required: 'El celular es requerido',
-                pattern: { value: /^[0-9]+$/, message: 'Solo números' } // Validación de solo números
-              })}
-              error={!!errors.celular}
-              helperText={errors.celular?.message}
-            />
-            <TextField
-              label="Proyecto"
-              variant="outlined"
-              fullWidth
-              margin="normal"
-              {...register('proyecto', { required: 'El proyecto es requerido' })}
-              error={!!errors.proyecto}
-              helperText={errors.proyecto?.message}
-            />
-            <TextField
-              label="Medio de Captación"
-              variant="outlined"
-              fullWidth
-              margin="normal"
-              {...register('medio')}
-            />
-            <TextField
-              label="Distrito"
-              variant="outlined"
-              fullWidth
-              margin="normal"
-              {...register('distrito')}
-            />
-
-            <FormControl fullWidth margin="normal" error={!!errors.tipificacion}>
-              <InputLabel>Tipificación</InputLabel>
-              <Select
-              label="Tipificación"
-              defaultValue="Nuevo" // Puedes usar defaultValue aquí para el estado inicial si el reset no lo cubre inmediatamente
-              {...register('tipificacion', { required: 'La tipificación es requerida' })}
-              >
-                {TIPIFICACION_CHOICES.map((option) => (
-                  <MenuItem key={option.value} value={option.value}>
-                    {option.label}
-                  </MenuItem>
-                ))}
-              </Select>
-              {errors.tipificacion && <Typography color="error" variant="caption">{errors.tipificacion.message}</Typography>}
-            </FormControl>
-
-            <FormControl fullWidth margin="normal">
-              <InputLabel>Asesor</InputLabel>
-              <Select
-              label="Asesor"
-              defaultValue="" // Puedes usar defaultValue aquí para el estado inicial
-              {...register('asesor')}
-              >
-                <MenuItem value="">Sin Asignar</MenuItem>
-                {asesores.map((asesor) => (
-                  <MenuItem key={asesor.id} value={asesor.id}>
-                    {asesor.username} ({asesor.first_name} {asesor.last_name})
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-
-            <TextField
-              label="Observación"
-              variant="outlined"
-              fullWidth
-              margin="normal"
-              multiline
-              rows={3}
-              {...register('observacion')}
-            />
-            <TextField
-              label="OPC (Método de Captación Original)"
-              variant="outlined"
-              fullWidth
-              margin="normal"
-              {...register('opc')}
-            />
-            <TextField
-              label="Observación OPC"
-              variant="outlined"
-              fullWidth
-              margin="normal"
-              multiline
-              rows={2}
-              {...register('observacion_opc')}
-            />
+            <Grid container spacing={2}>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  label="Nombre"
+                  variant="outlined"
+                  fullWidth
+                  margin="normal"
+                  {...register('nombre', { required: 'El nombre es requerido' })}
+                  error={!!errors.nombre}
+                  helperText={errors.nombre?.message}
+                />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  label="Celular"
+                  variant="outlined"
+                  fullWidth
+                  margin="normal"
+                  {...register('celular', {
+                    required: 'El celular es requerido',
+                    pattern: { value: /^[0-9]+$/, message: 'Solo números' }
+                  })}
+                  error={!!errors.celular}
+                  helperText={errors.celular?.message}
+                />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  label="Proyecto"
+                  variant="outlined"
+                  fullWidth
+                  margin="normal"
+                  {...register('proyecto', { required: 'El proyecto es requerido' })}
+                  error={!!errors.proyecto}
+                  helperText={errors.proyecto?.message}
+                />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <FormControl fullWidth margin="normal">
+                  <InputLabel>Medio de Captación</InputLabel>
+                  <Select
+                    label="Medio de Captación"
+                    defaultValue=""
+                    {...register('medio')}
+                  >
+                    {MEDIO_CAPTACION_CHOICES.map((option) => (
+                      <MenuItem key={option.value} value={option.value}>
+                        {option.label}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  label="Distrito"
+                  variant="outlined"
+                  fullWidth
+                  margin="normal"
+                  {...register('distrito')}
+                />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <FormControl fullWidth margin="normal" error={!!errors.tipificacion}>
+                  <InputLabel>Tipificación</InputLabel>
+                  <Select
+                    label="Tipificación"
+                    value={watchedTipificacion} /* Vincula explícitamente el valor para control */
+                    {...register('tipificacion', { required: 'La tipificación es requerida' })}
+                  >
+                    {TIPIFICACION_CHOICES.map((option) => (
+                      <MenuItem key={option.value} value={option.value}>
+                        {option.label}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                  {errors.tipificacion && <Typography color="error" variant="caption">{errors.tipificacion.message}</Typography>}
+                </FormControl>
+              </Grid>
+              <Grid item xs={12}>
+                <FormControl fullWidth margin="normal">
+                  <InputLabel>Asesor</InputLabel>
+                  <Select
+                    label="Asesor"
+                    defaultValue=""
+                    {...register('asesor')}
+                  >
+                    <MenuItem value="">Sin Asignar</MenuItem>
+                    {asesores.map((asesor) => (
+                      <MenuItem key={asesor.id} value={asesor.id}>
+                        {asesor.username} ({asesor.first_name} {asesor.last_name})
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Grid>
+              <Grid item xs={12}>
+                <TextField
+                  label="Observación"
+                  variant="outlined"
+                  fullWidth
+                  margin="normal"
+                  multiline
+                  rows={3}
+                  {...register('observacion')}
+                />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  label="OPC (Método de Captación Original)"
+                  variant="outlined"
+                  fullWidth
+                  margin="normal"
+                  {...register('opc')}
+                />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  label="Observación OPC"
+                  variant="outlined"
+                  fullWidth
+                  margin="normal"
+                  multiline
+                  rows={2}
+                  {...register('observacion_opc')}
+                />
+              </Grid>
+            </Grid>
           </form>
         )}
       </DialogContent>

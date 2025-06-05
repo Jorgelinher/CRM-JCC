@@ -1,4 +1,4 @@
-// frontend/crm_frontend/src/services/appointments.js
+
 import apiClient from './api';
 
 const appointmentsService = {
@@ -53,6 +53,18 @@ const appointmentsService = {
       return response.status;
     } catch (error) {
       console.error(`Error deleting appointment with ID ${id}:`, error);
+      throw error;
+    }
+  },
+
+  // NUEVO MÉTODO: Obtener historial de acciones de una cita (y su lead)
+  // Llama al endpoint personalizado que creamos en AppointmentViewSet
+  getAppointmentActions: async (appointmentId) => {
+    try {
+      const response = await apiClient.get(`/appointments/${appointmentId}/actions/`);
+      return response.data; // El backend ya devuelve una lista combinada y ordenada
+    } catch (error) {
+      console.error(`Error fetching actions for appointment ID ${appointmentId}:`, error);
       throw error;
     }
   },

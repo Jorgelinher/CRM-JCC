@@ -1,4 +1,4 @@
-// frontend/crm_frontend/src/pages/Leads/LeadDetailPage.jsx
+// frontend/crm_frontend/src/pages/Leads/LeadDetailPage.jsx 
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
@@ -13,9 +13,18 @@ import {
   ListItem,
   ListItemText,
 } from '@mui/material';
-import { Edit as EditIcon, ArrowBack as ArrowBackIcon } from '@mui/icons-material';
-import leadsService from '../../services/leads';
-import LeadFormModal from '../../components/leads/LeadFormModal'; // <-- IMPORTAR EL MODAL
+import { Edit as EditIcon, ArrowBack as ArrowBackIcon, Event as EventIcon } from '@mui/icons-material'; // Importar EventIcon
+import leadsService from '../../services/leads'; // 
+import LeadFormModal from '../../components/leads/LeadFormModal'; // 
+import AppointmentFormModal from '../../components/appointments/AppointmentFormModal'; // <-- NUEVA IMPORTACIÓN
+
+const CITA_TIPIFICATIONS = [
+  'CITA - SALA',
+  'CITA - PROYECTO',
+  'CITA - HxH',
+  'CITA - ZOOM',
+  'CITA - POR CONFIRMAR' // Incluir si esta tipificación también debería permitir agendar cita
+];
 
 function LeadDetailPage() {
   const { id } = useParams();
@@ -25,18 +34,21 @@ function LeadDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
-  // Estados para el Modal de Edición
+  // Estados para el Modal de Edición de Lead
   const [openLeadFormModal, setOpenLeadFormModal] = useState(false);
-  const [editingLeadId, setEditingLeadId] = useState(null); // Siempre será el 'id' de los params aquí
+  const [editingLeadId, setEditingLeadId] = useState(null);
+
+  // Estados para el Modal de Agendar Cita
+  const [openAppointmentModal, setOpenAppointmentModal] = useState(false);
 
   const fetchLeadAndActions = useCallback(async () => {
     setLoading(true);
     setError('');
     try {
-      const leadData = await leadsService.getLeadById(id);
+      const leadData = await leadsService.getLeadById(id); // 
       setLead(leadData);
 
-      const actionsData = await leadsService.getLeadActions(id);
+      const actionsData = await leadsService.getLeadActions(id); // 
       setActions(actionsData);
     } catch (err) {
       setError('Error al cargar los detalles del lead o sus acciones.');
@@ -50,22 +62,35 @@ function LeadDetailPage() {
     fetchLeadAndActions();
   }, [fetchLeadAndActions]);
 
-  // Handlers para el modal
+  // Handlers para el modal de Lead
   const handleOpenEditLeadModal = () => {
-    setEditingLeadId(lead.id); // Asegura que el ID del lead se pase al modal
+    setEditingLeadId(lead.id);
     setOpenLeadFormModal(true);
   };
 
   const handleCloseLeadFormModal = () => {
     setOpenLeadFormModal(false);
-    // Opcional: setEditingLeadId(null); si quieres resetearlo
   };
 
   const handleLeadSaveSuccess = () => {
     fetchLeadAndActions(); // Vuelve a cargar los datos del lead si se guardó correctamente
-    handleCloseLeadFormModal(); // Cierra el modal
+    handleCloseLeadFormModal();
   };
 
+  // Handlers para el modal de Citas
+  const handleOpenAppointmentModal = () => {
+    setOpenAppointmentModal(true);
+  };
+
+  const handleCloseAppointmentModal = () => {
+    setOpenAppointmentModal(false);
+    fetchLeadAndActions(); // Recargar el lead para ver si la tipificación cambió al agendar una cita
+  };
+
+  const handleAppointmentSaveSuccess = () => {
+    handleCloseAppointmentModal();
+    fetchLeadAndActions(); // Recargar el lead y sus acciones después de guardar una cita
+  };
 
   if (loading) {
     return (
@@ -136,12 +161,22 @@ function LeadDetailPage() {
             <strong>Última Actualización:</strong> {new Date(lead.ultima_actualizacion).toLocaleString()}
           </Typography>
         </Box>
-        <Box sx={{ mt: 3, display: 'flex', justifyContent: 'flex-end' }}>
+        <Box sx={{ mt: 3, display: 'flex', justifyContent: 'flex-end', gap: 2 }}>
+          {CITA_TIPIFICATIONS.includes(lead.tipificacion) && (
+            <Button
+              variant="contained"
+              color="success"
+              startIcon={<EventIcon />}
+              onClick={handleOpenAppointmentModal}
+            >
+              Agendar Cita
+            </Button>
+          )}
           <Button
             variant="contained"
-            color="warning" // Color de acento para edición
+            color="warning"
             startIcon={<EditIcon />}
-            onClick={handleOpenEditLeadModal} // <-- AHORA ABRE EL MODAL
+            onClick={handleOpenEditLeadModal}
           >
             Editar Lead
           </Button>
@@ -195,8 +230,15 @@ function LeadDetailPage() {
       <LeadFormModal
         open={openLeadFormModal}
         onClose={handleCloseLeadFormModal}
-        leadId={editingLeadId} // Pasa el ID del lead (de los params) al modal
+        leadId={editingLeadId}
         onSaveSuccess={handleLeadSaveSuccess}
+      />
+      {/* EL MODAL DE FORMULARIO DE CITAS SE RENDERIZA AQUÍ */}
+      <AppointmentFormModal
+        open={openAppointmentModal}
+        onClose={handleCloseAppointmentModal}
+        leadId={lead.id}
+        onSaveSuccess={handleAppointmentSaveSuccess}
       />
     </Box>
   );

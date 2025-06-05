@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   Box,
@@ -29,23 +28,40 @@ import {
   Edit as EditIcon,
   Delete as DeleteIcon,
   Visibility as ViewIcon,
-  Add as AddIcon
+  Add as AddIcon,
+  ClearAll as ClearAllIcon
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import leadsService from '../../services/leads';
-import LeadFormModal from '../../components/leads/LeadFormModal'; // <-- IMPORTAR EL NUEVO MODAL
+import LeadFormModal from '../../components/leads/LeadFormModal';
 
 const TIPIFICACION_CHOICES = [
   { value: '', label: 'Todas las Tipificaciones' },
-  { value: 'Nuevo', label: 'Nuevo' },
-  { value: 'Contactado', label: 'Contactado' },
-  { value: 'Interesado', label: 'Interesado' },
-  { value: 'No Contesta', label: 'No Contesta' },
-  { value: 'Descartado', label: 'Descartado' },
-  { value: 'Cita Agendada', label: 'Cita Agendada' },
-  { value: 'Cita Confirmada', label: 'Cita Confirmada' },
-  { value: 'Cita Realizada', label: 'Cita Realizada' },
-  { value: 'Seguimiento', label: 'Seguimiento' },
+  { value: 'NO CONTESTA', label: 'NO CONTESTA' },
+  { value: 'DATO FALSO', label: 'DATO FALSO' },
+  { value: 'NO INTERESADO - POR PROYECTO', label: 'NO INTERESADO - POR PROYECTO' },
+  { value: 'FUERA DE SERVICIO', label: 'FUERA DE SERVICIO' },
+  { value: 'NO REGISTRADO', label: 'NO REGISTRADO' },
+  { value: 'VOLVER A LLAMAR', label: 'VOLVER A LLAMAR' },
+  { value: 'APAGADO', label: 'APAGADO' },
+  { value: 'SEGUIMIENTO', label: 'SEGUIMIENTO' },
+  { value: 'NO INTERESADO - MEDIOS ECONOMICOS', label: 'NO INTERESADO - MEDIOS ECONOMICOS' },
+  { value: 'CITA - ZOOM', label: 'CITA - ZOOM' },
+  { value: 'NO INTERESADO - UBICACION', label: 'NO INTERESADO - UBICACION' },
+  { value: 'NO INTERESADO - YA COMPRO EN OTRO LUGAR', label: 'NO INTERESADO - YA COMPRO EN OTRO LUGAR' },
+  { value: 'INFORMACION WSP/CORREO', label: 'INFORMACION WSP/CORREO' },
+  { value: 'TERCERO', label: 'TERCERO' },
+  { value: 'NO INTERESADO - LEGALES', label: 'NO INTERESADO - LEGALES' },
+  { value: 'CITA - SALA', label: 'CITA - SALA' },
+  { value: 'CITA - PROYECTO', label: 'CITA - PROYECTO' },
+  { value: 'CITA - POR CONFIRMAR', label: 'CITA - POR CONFIRMAR' },
+  { value: 'CITA - HxH', label: 'CITA - HxH' },
+  { value: 'YA ASISTIO', label: 'YA ASISTIO' },
+  { value: 'DUPLICADO', label: 'DUPLICADO' },
+  { value: 'YA ES PROPIETARIO', label: 'YA ES PROPIETARIO' },
+  { value: 'AGENTE INMOBILIARIO', label: 'AGENTE INMOBILIARIO' },
+  { value: 'GESTON WSP', label: 'GESTON WSP' },
+  { value: 'NO CALIFICA', 'label': 'NO CALIFICA' },
 ];
 
 function LeadsPage() {
@@ -62,40 +78,35 @@ function LeadsPage() {
   const [filterFechaCreacionHasta, setFilterFechaCreacionHasta] = useState('');
   const [asesores, setAsesores] = useState([]);
 
-  // NUEVOS ESTADOS para el Modal del Formulario
-  const [openLeadFormModal, setOpenLeadFormModal] = useState(false); // Controla si el modal está abierto
-  const [editingLeadId, setEditingLeadId] = useState(null); // ID del lead a editar, null para nuevo
+  const [openLeadFormModal, setOpenLeadFormModal] = useState(false);
+  const [editingLeadId, setEditingLeadId] = useState(null);
+
+  const [page, setPage] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
+  const [totalLeads, setTotalLeads] = useState(0);
 
 
-  // Paginación
-  const [page, setPage] = useState(0); // Página actual (0-indexed para MUI TablePagination)
-  const [rowsPerPage, setRowsPerPage] = useState(10); // Elementos por página
-  const [totalLeads, setTotalLeads] = useState(0); // Total de leads devueltos por el backend
-
-
-  // fetchLeads ahora enviará los parámetros y espera una respuesta paginada
   const fetchLeads = useCallback(async () => {
     console.log('fetchLeads: Iniciando llamada a la API de leads con parámetros (paginación real)');
     setLoading(true);
     setError('');
     try {
-      const params = { // <-- Los parámetros se envían aquí para que la búsqueda y filtro funcionen
-        page: page + 1, // Django usa paginación 1-indexed
-        page_size: rowsPerPage, // Envía el tamaño de página
+      const params = {
+        page: page + 1,
+        page_size: rowsPerPage,
         search: searchTerm,
         tipificacion: filterTipificacion,
         asesor: filterAsesor,
-        'fecha_creacion_gte': filterFechaCreacionDesde, // Parámetro para fecha de creación 'desde' (gte = greater than or equal)
-        'fecha_creacion_lte': filterFechaCreacionHasta, // Parámetro para fecha de creación 'hasta' (lte = less than or equal)
-        ordering: '-fecha_creacion', // Ordenar por fecha de creación descendente por defecto
+        'fecha_creacion_after': filterFechaCreacionDesde,
+        'fecha_creacion_before': filterFechaCreacionHasta,
+        ordering: '-fecha_creacion',
       };
 
-      // ¡CORRECCIÓN CLAVE! Ahora esperamos la respuesta paginada
-      const response = await leadsService.getLeads(params); // <-- Envía los parámetros. 'response' será el objeto paginado.
+      const response = await leadsService.getLeads(params);
       console.log('fetchLeads: Datos de leads recibidos (paginados):', response);
 
-      setLeads(response.results || []); // ¡CORRECCIÓN CLAVE! Asigna 'response.results' (el array de leads) a 'leads'
-      setTotalLeads(response.count || 0); // ¡CORRECCIÓN CLAVE! Asigna 'response.count' (el total de leads) a 'totalLeads'
+      setLeads(response.results || []);
+      setTotalLeads(response.count || 0);
 
     } catch (err) {
       console.error('fetchLeads: Error al cargar los leads:', err);
@@ -105,7 +116,7 @@ function LeadsPage() {
     } finally {
       setLoading(false);
     }
-  }, [page, rowsPerPage, searchTerm, filterTipificacion, filterAsesor, filterFechaCreacionDesde, filterFechaCreacionHasta]); // Las dependencias son importantes para que se recargue al cambiar filtros/paginación.
+  }, [page, rowsPerPage, searchTerm, filterTipificacion, filterAsesor, filterFechaCreacionDesde, filterFechaCreacionHasta]);
 
 
   const fetchAsesores = useCallback(async () => {
@@ -130,14 +141,13 @@ function LeadsPage() {
     fetchAsesores();
   }, [fetchAsesores]);
 
-  // NUEVOS HANDLERS para abrir el modal
   const handleOpenNewLeadModal = () => {
-    setEditingLeadId(null); // No hay ID, es un lead nuevo
+    setEditingLeadId(null);
     setOpenLeadFormModal(true);
   };
 
   const handleOpenEditLeadModal = (id) => {
-    setEditingLeadId(id); // Pasar el ID del lead a editar
+    setEditingLeadId(id);
     setOpenLeadFormModal(true);
   };
 
@@ -146,28 +156,28 @@ function LeadsPage() {
   };
 
   const handleLeadSaveSuccess = () => {
-    fetchLeads(); // Recargar la lista de leads después de guardar
-    handleCloseLeadFormModal(); // Cerrar el modal
+    fetchLeads();
+    handleCloseLeadFormModal();
   };
 
   const handleSearchChange = (event) => {
     setSearchTerm(event.target.value);
-    setPage(0); // Reiniciar a la primera página con una nueva búsqueda
+    setPage(0);
   };
 
   const handleClearSearch = () => {
     setSearchTerm('');
-    setPage(0); // Reiniciar a la primera página
+    setPage(0);
   };
 
   const handleFilterTipificacionChange = (event) => {
     setFilterTipificacion(event.target.value);
-    setPage(0); // Reiniciar a la primera página con un nuevo filtro
+    setPage(0);
   };
 
   const handleFilterAsesorChange = (event) => {
     setFilterAsesor(event.target.value);
-    setPage(0); // Reiniciar a la primera página con un nuevo filtro
+    setPage(0);
   };
 
   const handleFilterFechaCreacionDesdeChange = (event) => {
@@ -177,6 +187,15 @@ function LeadsPage() {
 
   const handleFilterFechaCreacionHastaChange = (event) => {
     setFilterFechaCreacionHasta(event.target.value);
+    setPage(0);
+  };
+
+  const handleClearAllFilters = () => {
+    setSearchTerm('');
+    setFilterTipificacion('');
+    setFilterAsesor('');
+    setFilterFechaCreacionDesde('');
+    setFilterFechaCreacionHasta('');
     setPage(0);
   };
 
@@ -193,7 +212,7 @@ function LeadsPage() {
     if (window.confirm('¿Estás seguro de que quieres eliminar este lead?')) {
       try {
         await leadsService.deleteLead(id);
-        fetchLeads(); // Recargar leads después de eliminar
+        fetchLeads();
       } catch (err) {
         setError('Error al eliminar el lead.');
         console.error('Error deleting lead:', err);
@@ -273,11 +292,21 @@ function LeadsPage() {
               InputLabelProps={{ shrink: true }}
               sx={{ minWidth: 180 }}
             />
+            {(searchTerm || filterTipificacion || filterAsesor || filterFechaCreacionDesde || filterFechaCreacionHasta) && (
+              <Button
+                variant="outlined"
+                color="secondary"
+                startIcon={<ClearAllIcon />}
+                onClick={handleClearAllFilters}
+              >
+                Borrar Filtros
+              </Button>
+            )}
             <Button
               variant="contained"
               color="primary"
               startIcon={<AddIcon />}
-              onClick={handleOpenNewLeadModal} // <-- AHORA ABRE EL MODAL
+              onClick={handleOpenNewLeadModal}
               sx={{ ml: 'auto' }}
             >
               Nuevo Lead
@@ -302,6 +331,7 @@ function LeadsPage() {
                       <TableCell>Nombre</TableCell>
                       <TableCell>Celular</TableCell>
                       <TableCell>Proyecto</TableCell>
+                      <TableCell>Medio de Captación</TableCell>{/* NUEVO: Columna Medio de Captación */}
                       <TableCell>Tipificación</TableCell>
                       <TableCell>Asesor</TableCell>
                       <TableCell>Última Actualización</TableCell>
@@ -314,6 +344,7 @@ function LeadsPage() {
                         <TableCell>{lead.nombre}</TableCell>
                         <TableCell>{lead.celular}</TableCell>
                         <TableCell>{lead.proyecto}</TableCell>
+                        <TableCell>{lead.medio || 'N/A'}</TableCell>{/* NUEVO: Mostrar Medio de Captación */}
                         <TableCell>{lead.tipificacion}</TableCell>
                         <TableCell>{lead.asesor ? lead.asesor.username : 'N/A'}</TableCell>
                         <TableCell>{new Date(lead.ultima_actualizacion).toLocaleString()}</TableCell>
@@ -324,7 +355,7 @@ function LeadsPage() {
                             </IconButton>
                           </Tooltip>
                           <Tooltip title="Editar Lead">
-                            <IconButton onClick={() => handleOpenEditLeadModal(lead.id)}> {/* <-- AHORA ABRE EL MODAL PARA EDITAR */}
+                            <IconButton onClick={() => handleOpenEditLeadModal(lead.id)}>
                               <EditIcon color="warning" />
                             </IconButton>
                           </Tooltip>
@@ -351,7 +382,6 @@ function LeadsPage() {
               />
             </Paper>
           )}
-          {/* EL MODAL DE FORMULARIO DE LEADS SE RENDERIZA AQUÍ */}
           <LeadFormModal
             open={openLeadFormModal}
             onClose={handleCloseLeadFormModal}
