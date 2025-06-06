@@ -25,10 +25,39 @@ class User(AbstractUser):
     def __str__(self):
         return self.username
 
+class OPCPersonnel(models.Model):
+    user = models.OneToOneField(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='opc_profile')
+
+    nombre = models.CharField(max_length=255)
+    telefono = models.CharField(max_length=20, blank=True, null=True)
+    email = models.EmailField(blank=True, null=True)
+
+    ROLES_OPC_CHOICES = [
+        ('OPC', 'Personal OPC'),
+        ('SUPERVISOR', 'Supervisor OPC'),
+    ]
+    rol = models.CharField(max_length=10, choices=ROLES_OPC_CHOICES)
+
+    supervisor = models.ForeignKey(
+        'self',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='subordinados',
+        limit_choices_to={'rol': 'SUPERVISOR'}
+    )
+
+    horario_semanal = models.JSONField(default=dict, blank=True, null=True)
+
+    def __str__(self):
+        return f"{self.nombre} ({self.rol})"
+
 class Lead(models.Model):
     asesor = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='assigned_leads')
 
-    proyecto = models.CharField(max_length=255)
+    # CORRECCIÓN: Renombrar 'proyecto' a 'ubicacion'. Este campo se usa para la ubicación física de captación.
+    ubicacion = models.CharField(max_length=255, blank=True, null=True) # Puede ser la ubicación OPC o el nombre de campaña para leads generales
+
     nombre = models.CharField(max_length=255)
     celular = models.CharField(max_length=20, unique=True)
     medio = models.CharField(max_length=100, blank=True, null=True)
@@ -61,20 +90,44 @@ class Lead(models.Model):
         ('GESTON WSP', 'GESTON WSP'),
         ('NO CALIFICA', 'NO CALIFICA'),
     ]
-    tipificacion = models.CharField(max_length=100, choices=TIPIFICACION_CHOICES, default='NO CONTESTA')
+    tipificacion = models.CharField(max_length=100, choices=TIPIFICACION_CHOICES, default='', blank=True, null=True)
 
     observacion = models.TextField(blank=True, null=True)
-    opc = models.CharField(max_length=100, blank=True, null=True)
+    # 'opc_original' ha sido eliminado en la fase anterior
     observacion_opc = models.TextField(blank=True, null=True)
 
     fecha_creacion = models.DateTimeField(auto_now_add=True)
     ultima_actualizacion = models.DateTimeField(auto_now=True)
 
+    personal_opc_captador = models.ForeignKey(OPCPersonnel, on_delete=models.SET_NULL, null=True, blank=True, related_name='leads_captados')
+    supervisor_opc_captador = models.ForeignKey(OPCPersonnel, on_delete=models.SET_NULL, null=True, blank=True, related_name='leads_supervisados', limit_choices_to={'rol': 'SUPERVISOR'})
+    fecha_captacion = models.DateField(blank=True, null=True)
+
+    # CORRECCIÓN: 'calle_o_modulo' ahora es un campo de opciones
+    CALLE_MODULO_CHOICES = [
+        ('CALLE', 'Calle'),
+        ('MODULO', 'Módulo'),
+    ]
+    calle_o_modulo = models.CharField(max_length=10, choices=CALLE_MODULO_CHOICES, blank=True, null=True)
+
+    # NUEVO CAMPO: Proyecto de Interés (para leads OPC) / Nombre de Campaña (para leads generales)
+    PROYECTO_INTERES_CHOICES = [
+        ('OASIS 2 (AUCALLAMA)', 'OASIS 2 (AUCALLAMA)'),
+        ('OASIS 3 (HUACHO 2)', 'OASIS 3 (HUACHO 2)'),
+        ('OASIS 1 (HUACHO 1)', 'OASIS 1 (HUACHO 1)'),
+        ('OASIS 1 y 2', 'OASIS 1 y 2'),
+        ('OASIS 2 y 3', 'OASIS 2 y 3'),
+        ('OASIS 1 y 3', 'OASIS 1 y 3'),
+        ('OASIS 1,2 y 3', 'OASIS 1,2 y 3'),
+    ]
+    proyecto_interes = models.CharField(max_length=50, choices=PROYECTO_INTERES_CHOICES, blank=True, null=True)
+
+
     def __str__(self):
         return f"{self.nombre} - {self.celular}"
 
 class Action(models.Model):
-    lead = models.ForeignKey(Lead, on_delete=models.CASCADE, related_name='actions')
+    lead = models.ForeignKey(Lead, on_delete=models.SET_NULL, null=True, blank=True, related_name='actions')
     appointment = models.ForeignKey('Appointment', on_delete=models.SET_NULL, null=True, blank=True, related_name='actions')
     user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
 
@@ -109,8 +162,9 @@ class Appointment(models.Model):
     fecha_creacion = models.DateTimeField(auto_now_add=True)
     ultima_actualizacion = models.DateTimeField(auto_now=True)
 
-    # NUEVO CAMPO: Para rastrear si la cita alguna vez fue confirmada
     has_ever_been_confirmed = models.BooleanField(default=False)
+
+    opc_personal_atendio = models.ForeignKey(OPCPersonnel, on_delete=models.SET_NULL, null=True, blank=True, related_name='citas_atendidas_opc')
 
     def __str__(self):
         return f"Cita con {self.lead.nombre} el {self.fecha_hora.strftime('%d/%m/%Y %H:%M')}"

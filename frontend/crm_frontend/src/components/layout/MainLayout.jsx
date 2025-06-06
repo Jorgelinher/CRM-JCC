@@ -1,8 +1,7 @@
-// frontend/src/components/layout/MainLayout.jsx
 import React from 'react';
 import { Outlet, useNavigate } from 'react-router-dom';
 import { AppBar, Toolbar, Typography, Button, Box, Drawer, List, ListItem, ListItemText, CssBaseline } from '@mui/material';
-import useAuth from '../../hooks/useAuth'; // Importa tu hook de autenticación
+import useAuth from '../../hooks/useAuth';
 
 function MainLayout() {
   const { logout, user } = useAuth();
@@ -18,7 +17,8 @@ function MainLayout() {
     { text: 'Leads', path: '/leads' },
     { text: 'Citas', path: '/appointments' },
     { text: 'Carga CSV', path: '/csv-upload' },
-    // Añade más ítems de navegación según sea necesario
+    { text: 'Personal OPC', path: '/opc-personnel' },
+    { text: 'Leads OPC', path: '/opc-leads' },
   ];
 
   return (
@@ -47,11 +47,12 @@ function MainLayout() {
           [`& .MuiDrawer-paper`]: { width: drawerWidth, boxSizing: 'border-box' },
         }}
       >
-        <Toolbar /> {/* Para empujar el contenido debajo del AppBar */}
+        <Toolbar />
         <Box sx={{ overflow: 'auto' }}>
           <List>
             {navItems.map((item) => (
-              <ListItem button key={item.text} onClick={() => navigate(item.path)}>
+              // CORRECCIÓN: Usar item.path como key, que es garantizadamente único
+              <ListItem button key={item.path} onClick={() => navigate(item.path)}>
                 <ListItemText primary={item.text} />
               </ListItem>
             ))}
@@ -59,7 +60,7 @@ function MainLayout() {
         </Box>
       </Drawer>
       <Box component="main" sx={{ flexGrow: 1, p: 3, mt: 8 }}>
-        <Outlet /> {/* Aquí se renderizarán las páginas anidadas (DashboardPage, LeadsPage, etc.) */}
+        <Outlet />
       </Box>
     </Box>
   );

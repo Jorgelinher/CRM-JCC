@@ -8,15 +8,16 @@ from rest_framework.pagination import PageNumberPagination
 
 from django_filters.rest_framework import DjangoFilterBackend
 from django_filters import FilterSet, DateFromToRangeFilter
+import django_filters
 from rest_framework.filters import SearchFilter, OrderingFilter
 
 from django.db import transaction
 from django.db.models import Count, Q
 from django.utils import timezone
-import datetime # Asegurarse de que datetime esté importado
+import datetime
 
-from .models import Lead, User, Action, Appointment
-from .serializers import LeadSerializer, UserSerializer, ActionSerializer, AppointmentSerializer
+from .models import Lead, User, Action, Appointment, OPCPersonnel
+from . import serializers
 
 
 class StandardResultsSetPagination(PageNumberPagination):
@@ -28,28 +29,52 @@ class StandardResultsSetPagination(PageNumberPagination):
 class LeadFilter(FilterSet):
     fecha_creacion = DateFromToRangeFilter()
     ultima_actualizacion = DateFromToRangeFilter()
+    fecha_captacion = DateFromToRangeFilter()
+
+    is_opc_lead = django_filters.BooleanFilter(method='filter_is_opc_lead')
 
     class Meta:
         model = Lead
         fields = {
             'asesor': ['exact'],
-            'proyecto': ['exact', 'icontains'],
+            'ubicacion': ['exact', 'icontains'],
+            'proyecto_interes': ['exact'],
             'medio': ['exact'],
             'distrito': ['exact', 'icontains'],
             'tipificacion': ['exact'],
-            'fecha_creacion': ['gte', 'lte'],
-            'ultima_actualizacion': ['gte', 'lte'],
+            # Estos están definidos directamente en la clase, no deben estar aquí
+            # 'fecha_creacion': ['gte', 'lte'],
+            # 'ultima_actualizacion': ['gte', 'lte'],
+            'personal_opc_captador': ['exact'],
+            'supervisor_opc_captador': ['exact'],
+            # Este también, no debe estar aquí
+            # 'fecha_captacion': ['gte', 'lte'],
+            'calle_o_modulo': ['exact'],
         }
 
+    def filter_is_opc_lead(self, queryset, name, value):
+        if value is True:
+            return queryset.filter(personal_opc_captador__isnull=False)
+        elif value is False:
+            return queryset.filter(personal_opc_captador__isnull=True)
+        return queryset
+
+
 class LeadViewSet(viewsets.ModelViewSet):
-    queryset = Lead.objects.all().select_related('asesor').order_by('-fecha_creacion')
-    serializer_class = LeadSerializer
+    queryset = Lead.objects.all().select_related(
+        'asesor', 'personal_opc_captador', 'supervisor_opc_captador'
+    ).order_by('-fecha_creacion')
+    
+    serializer_class = serializers.LeadSerializer
     permission_classes = [IsAuthenticated]
 
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
     filterset_class = LeadFilter
-    search_fields = ['nombre', 'celular', 'proyecto', 'distrito', 'observacion']
-    ordering_fields = ['fecha_creacion', 'ultima_actualizacion', 'nombre', 'tipificacion', 'celular', 'proyecto']
+    search_fields = ['nombre', 'celular', 'ubicacion', 'distrito', 'observacion', 'calle_o_modulo', 'proyecto_interes']
+    ordering_fields = [
+        'fecha_creacion', 'ultima_actualizacion', 'nombre', 'tipificacion', 'celular',
+        'ubicacion', 'fecha_captacion', 'personal_opc_captador', 'supervisor_opc_captador', 'proyecto_interes'
+    ]
 
     pagination_class = StandardResultsSetPagination
 
@@ -63,7 +88,7 @@ class LeadViewSet(viewsets.ModelViewSet):
     def actions(self, request, pk=None):
         lead = self.get_object()
         actions = lead.actions.all().order_by('-fecha_accion')
-        serializer = ActionSerializer(actions, many=True)
+        serializer = serializers.ActionSerializer(actions, many=True)
         return Response(serializer.data)
 
     @action(detail=False, methods=['post'])
@@ -104,33 +129,36 @@ class LeadViewSet(viewsets.ModelViewSet):
 
                     nombre = clean_row.get('nombre')
                     celular = clean_row.get('celular')
-                    proyecto = clean_row.get('proyecto')
+                    ubicacion = clean_row.get('proyecto')
                     medio = clean_row.get('medio')
                     distrito = clean_row.get('distrito')
-                    tipificacion = clean_row.get('tipificacion', 'NO CONTESTA')
+                    tipificacion = clean_row.get('tipificacion', '')
                     observacion = clean_row.get('observacion')
-                    opc = clean_row.get('opc')
                     observacion_opc = clean_row.get('observacion_opc')
+                    proyecto_interes = clean_row.get('proyecto_interes')
+                    calle_o_modulo = clean_row.get('calle_o_modulo')
+
 
                     current_asesor = asesores_activos[asesor_index]
                     asesor_index = (asesor_index + 1) % len(asesores_activos)
 
-                    if not celular or not nombre or not proyecto:
-                        errores.append(f"Fila {row_num}: Celular, Nombre o Proyecto faltantes.")
+                    if not celular or not nombre or not ubicacion:
+                        errores.append(f"Fila {row_num}: Celular, Nombre o Ubicación faltantes.")
                         continue
 
                     lead_obj, created = Lead.objects.update_or_create(
                         celular=celular,
                         defaults={
                             'nombre': nombre,
-                            'proyecto': proyecto,
+                            'ubicacion': ubicacion,
                             'medio': medio,
                             'distrito': distrito,
                             'tipificacion': tipificacion,
                             'observacion': observacion,
-                            'opc': opc,
                             'observacion_opc': observacion_opc,
                             'asesor': current_asesor,
+                            'proyecto_interes': proyecto_interes,
+                            'calle_o_modulo': calle_o_modulo,
                         }
                     )
                     if created:
@@ -152,7 +180,7 @@ class LeadViewSet(viewsets.ModelViewSet):
 
 class UserViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = User.objects.all().order_by('username')
-    serializer_class = UserSerializer
+    serializer_class = serializers.UserSerializer
     permission_classes = [IsAuthenticated]
 
 class AppointmentFilter(FilterSet):
@@ -162,12 +190,14 @@ class AppointmentFilter(FilterSet):
             'asesor_comercial': ['exact'],
             'asesor_presencial': ['exact'],
             'estado': ['exact'],
-            # 'fecha_hora': ['gte', 'lte'], # Se maneja manualmente en get_queryset
         }
 
 class AppointmentViewSet(viewsets.ModelViewSet):
-    queryset = Appointment.objects.all().select_related('lead', 'asesor_comercial', 'asesor_presencial').order_by('-fecha_hora')
-    serializer_class = AppointmentSerializer
+    queryset = Appointment.objects.all().select_related(
+        'lead', 'asesor_comercial', 'asesor_presencial', 'opc_personal_atendio'
+    ).order_by('-fecha_hora')
+
+    serializer_class = serializers.AppointmentSerializer
     permission_classes = [IsAuthenticated]
 
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
@@ -176,7 +206,6 @@ class AppointmentViewSet(viewsets.ModelViewSet):
     ordering_fields = ['fecha_hora', 'estado', 'lead__nombre', 'lead__celular']
     pagination_class = StandardResultsSetPagination
 
-    # MODIFICACIÓN: Nuevo método get_queryset para manejar el filtro de fecha_hora de forma inclusiva
     def get_queryset(self):
         queryset = super().get_queryset()
 
@@ -185,22 +214,19 @@ class AppointmentViewSet(viewsets.ModelViewSet):
 
         if fecha_hora_gte_str:
             try:
-                # Convertir la fecha de inicio a datetime con zona horaria UTC al inicio del día
                 start_date = datetime.datetime.strptime(fecha_hora_gte_str, '%Y-%m-%d').date()
                 start_datetime = datetime.datetime.combine(start_date, datetime.time.min).replace(tzinfo=datetime.timezone.utc)
                 queryset = queryset.filter(fecha_hora__gte=start_datetime)
             except ValueError:
-                pass # Ignorar filtro si el formato de fecha es inválido
+                pass
 
         if fecha_hora_lte_str:
             try:
-                # Convertir la fecha de fin a datetime con zona horaria UTC al FINAL del día
                 end_date = datetime.datetime.strptime(fecha_hora_lte_str, '%Y-%m-%d').date()
-                # Sumar un día y usar __lt para incluir todo el día seleccionado
                 adjusted_end_datetime = datetime.datetime.combine(end_date + datetime.timedelta(days=1), datetime.time.min).replace(tzinfo=datetime.timezone.utc)
                 queryset = queryset.filter(fecha_hora__lt=adjusted_end_datetime)
             except ValueError:
-                pass # Ignorar filtro si el formato de fecha es inválido
+                pass
 
         return queryset
 
@@ -225,7 +251,6 @@ class AppointmentViewSet(viewsets.ModelViewSet):
         if not old_has_ever_been_confirmed and appointment.estado == 'Confirmada':
             appointment.has_ever_been_confirmed = True
             appointment.save(update_fields=['has_ever_been_confirmed'])
-
 
     def perform_destroy(self, instance):
         lead_id = instance.lead_id
@@ -255,7 +280,7 @@ class AppointmentViewSet(viewsets.ModelViewSet):
             reverse=True
         )
 
-        serializer = ActionSerializer(all_related_actions, many=True)
+        serializer = serializers.ActionSerializer(all_related_actions, many=True)
         return Response(serializer.data)
 
 
@@ -272,11 +297,32 @@ class ActionFilter(FilterSet):
 
 class ActionViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = Action.objects.all().select_related('lead', 'appointment', 'user').order_by('-fecha_accion')
-    serializer_class = ActionSerializer
+    serializer_class = serializers.ActionSerializer
     permission_classes = [IsAuthenticated]
     filter_backends = [DjangoFilterBackend, OrderingFilter]
     filterset_class = ActionFilter
     ordering_fields = ['fecha_accion', 'tipo_accion']
+    pagination_class = StandardResultsSetPagination
+
+
+# NUEVO: Filtro para el Personal OPC
+class OPCPersonnelFilter(FilterSet):
+    class Meta:
+        model = OPCPersonnel
+        fields = {
+            'rol': ['exact'],
+            'supervisor': ['exact'], # Filtrar por supervisor
+            # No hay campos de fecha en el modelo OPCPersonnel para filtrar
+        }
+
+class OPCPersonnelViewSet(viewsets.ModelViewSet):
+    queryset = OPCPersonnel.objects.all().select_related('user', 'supervisor').order_by('nombre')
+    serializer_class = serializers.OPCPersonnelSerializer
+    permission_classes = [IsAuthenticated]
+    filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
+    filterset_class = OPCPersonnelFilter # ASIGNACIÓN DEL FILTRO
+    search_fields = ['nombre', 'telefono', 'email', 'rol', 'supervisor__nombre', 'user__username']
+    ordering_fields = ['nombre', 'rol', 'supervisor__nombre']
     pagination_class = StandardResultsSetPagination
 
 
@@ -319,12 +365,15 @@ def dashboard_metrics(request):
             asesor = User.objects.get(id=asesor_id)
             leads_queryset = leads_queryset.filter(asesor=asesor)
             appointments_queryset = appointments_queryset.filter(
-                Q(asesor_comercial=asesor) | Q(asesor_presencial=asesor)
+                Q(asesor_comercial=asesor) | Q(asesor_presencial=asesor) | Q(opc_personal_atendio=asesor.opc_profile)
             )
         except User.DoesNotExist:
             return Response({"error": "Asesor no encontrado."}, status=status.HTTP_404_NOT_FOUND)
         except ValueError:
             return Response({"error": "ID de asesor inválido."}, status=status.HTTP_400_BAD_REQUEST)
+        except OPCPersonnel.DoesNotExist:
+            pass
+
 
     # --- Métricas Clave ---
     total_leads_asignados = leads_queryset.count()
@@ -338,24 +387,35 @@ def dashboard_metrics(request):
     users_with_activity = User.objects.filter(
         Q(assigned_leads__in=leads_queryset) |
         Q(scheduled_appointments__in=appointments_queryset) |
-        Q(attended_appointments__in=appointments_queryset)
+        Q(attended_appointments__in=appointments_queryset) |
+        Q(opc_profile__citas_atendidas_opc__in=appointments_queryset)
     ).distinct().order_by('username')
 
-    for asesor in users_with_activity:
-        asesor_leads_count = leads_queryset.filter(asesor=asesor).count()
+    for user_obj in users_with_activity:
+        asesor_leads_count = leads_queryset.filter(asesor=user_obj).count()
         asesor_citas_confirmadas = appointments_queryset.filter(
-            Q(asesor_comercial=asesor) | Q(asesor_presencial=asesor),
+            Q(asesor_comercial=user_obj) | Q(asesor_presencial=user_obj),
             has_ever_been_confirmed=True
         ).count()
-        asesor_presencias = appointments_queryset.filter(
-            Q(asesor_comercial=asesor) | Q(asesor_presencial=asesor),
+
+        asesor_presencias = 0
+        asesor_presencias += appointments_queryset.filter(
+            Q(asesor_comercial=user_obj) | Q(asesor_presencial=user_obj),
             estado='Realizada'
         ).count()
+        
+        if hasattr(user_obj, 'opc_profile'):
+            opc_attended_presences = appointments_queryset.filter(
+                opc_personal_atendio=user_obj.opc_profile,
+                estado='Realizada'
+            ).count()
+            asesor_presencias += opc_attended_presences
+
         asesor_tasa_conversion = (asesor_presencias / asesor_citas_confirmadas * 100) if asesor_citas_confirmadas > 0 else 0
 
         asesores_data.append({
-            'id': asesor.id,
-            'nombre': asesor.username,
+            'id': user_obj.id,
+            'nombre': user_obj.username,
             'leads_asignados': asesor_leads_count,
             'citas_confirmadas': asesor_citas_confirmadas,
             'presencias': asesor_presencias,

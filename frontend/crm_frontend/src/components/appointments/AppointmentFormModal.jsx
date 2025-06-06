@@ -1,14 +1,14 @@
-// frontend/crm_frontend/src/components/appointments/AppointmentFormModal.jsx
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import {
   Dialog, DialogTitle, DialogContent, DialogActions,
   TextField, Button, MenuItem, FormControl, InputLabel, Select,
   CircularProgress, Alert, Typography, Box,
-  Grid, // NUEVO: Importar Grid
+  Grid,
 } from '@mui/material';
 import moment from 'moment';
 import appointmentsService from '../../services/appointments';
 import leadsService from '../../services/leads';
+import opcPersonnelService from '../../services/opcPersonnel';
 
 const ESTADO_CITA_CHOICES = [
     { value: 'Pendiente', label: 'Pendiente' },
@@ -27,17 +27,20 @@ const UBICACION_CHOICES = [
     { value: 'Proyecto', label: 'Proyecto' },
 ];
 
-function AppointmentFormModal({ open, onClose, appointmentData, leadId, onSaveSuccess }) {
+function AppointmentFormModal({ open, onClose, appointmentData, leadId, onSaveSuccess, opcPersonnelId }) {
     const [loadingForm, setLoadingForm] = useState(true);
     const [submitting, setSubmitting] = useState(false);
     const [error, setError] = useState('');
     const [leads, setLeads] = useState([]);
     const [asesores, setAsesores] = useState([]);
+    const [opcPersonnelList, setOpcPersonnelList] = useState([]);
+
 
     const [formValues, setFormValues] = useState({
         lead_id: '',
         asesor_comercial_id: '',
         asesor_presencial_id: '',
+        opc_personal_atendio_id: '',
         fecha_hora: '',
         lugar: '',
         estado: 'Pendiente',
@@ -45,10 +48,27 @@ function AppointmentFormModal({ open, onClose, appointmentData, leadId, onSaveSu
     });
     const [formErrors, setFormErrors] = useState({});
 
+    const fetchSelectionsData = useCallback(async () => {
+        try {
+            const [leadsData, asesoresData, opcData] = await Promise.all([
+                leadsService.getLeads({ page_size: 1000, ordering: 'nombre' }),
+                leadsService.getUsers({ page_size: 1000, ordering: 'username' }),
+                opcPersonnelService.getPersonnel({ page_size: 1000 }),
+            ]);
+            setLeads(leadsData.results || []);
+            setAsesores(asesoresData.results || []);
+            setOpcPersonnelList(opcData.results || []);
+        } catch (err) {
+            setError('Error al cargar datos para el formulario de citas.');
+            console.error('Error fetching selections data for appointment form:', err);
+        }
+    }, []);
+
     useEffect(() => {
         if (!open) {
             setFormValues({
                 lead_id: '', asesor_comercial_id: '', asesor_presencial_id: '',
+                opc_personal_atendio_id: '',
                 fecha_hora: '', lugar: '', estado: 'Pendiente', observaciones: '',
             });
             setFormErrors({});
@@ -57,46 +77,36 @@ function AppointmentFormModal({ open, onClose, appointmentData, leadId, onSaveSu
             return;
         }
 
-        const fetchData = async () => {
-            try {
-                const [leadsData, asesoresData] = await Promise.all([
-                    leadsService.getLeads({ page_size: 1000, ordering: 'nombre' }),
-                    leadsService.getUsers({ page_size: 1000, ordering: 'username' }),
-                ]);
-                setLeads(leadsData.results || []);
-                setAsesores(asesoresData.results || []);
+        fetchSelectionsData();
 
-                if (appointmentData) {
-                    setFormValues({
-                        lead_id: appointmentData.lead ? appointmentData.lead.id : '',
-                        asesor_comercial_id: appointmentData.asesor_comercial ? appointmentData.asesor_comercial.id : '',
-                        asesor_presencial_id: appointmentData.asesor_presencial ? appointmentData.asesor_presencial.id : '',
-                        fecha_hora: moment(appointmentData.fecha_hora).format('YYYY-MM-DDTHH:mm'),
-                        lugar: appointmentData.lugar || '',
-                        estado: appointmentData.estado,
-                        observaciones: appointmentData.observaciones || '',
-                    });
-                } else if (leadId) {
-                    setFormValues(prev => ({
-                        ...prev,
-                        lead_id: leadId,
-                        fecha_hora: moment().format('YYYY-MM-DDTHH:mm'),
-                    }));
-                } else {
-                    setFormValues(prev => ({
-                        ...prev,
-                        fecha_hora: moment().format('YYYY-MM-DDTHH:mm'),
-                    }));
-                }
-            } catch (err) {
-                setError('Error al cargar datos para el formulario de citas.');
-                console.error('Error fetching data for appointment form:', err);
-            } finally {
-                setLoadingForm(false);
+        const initializeFormValues = async () => {
+            if (appointmentData) {
+                setFormValues({
+                    lead_id: appointmentData.lead ? appointmentData.lead.id : '',
+                    asesor_comercial_id: appointmentData.asesor_comercial ? appointmentData.asesor_comercial.id : '',
+                    asesor_presencial_id: appointmentData.asesor_presencial ? appointmentData.asesor_presencial.id : '',
+                    opc_personal_atendio_id: appointmentData.opc_personal_atendio ? appointmentData.opc_personal_atendio.id : '',
+                    fecha_hora: moment(appointmentData.fecha_hora).format('YYYY-MM-DDTHH:mm'),
+                    lugar: appointmentData.lugar || '',
+                    estado: appointmentData.estado,
+                    observaciones: appointmentData.observaciones || '',
+                });
+            } else {
+                setFormValues({
+                    lead_id: leadId || '',
+                    asesor_comercial_id: '',
+                    asesor_presencial_id: '',
+                    opc_personal_atendio_id: opcPersonnelId || '',
+                    fecha_hora: moment().format('YYYY-MM-DDTHH:mm'),
+                    lugar: '',
+                    estado: 'Pendiente',
+                    observaciones: '',
+                });
             }
+            setLoadingForm(false);
         };
-        fetchData();
-    }, [open, appointmentData, leadId]);
+        initializeFormValues();
+    }, [open, appointmentData, leadId, opcPersonnelId, fetchSelectionsData]);
 
     const handleChange = (e) => {
         const { name, value } = e.target;
@@ -109,6 +119,9 @@ function AppointmentFormModal({ open, onClose, appointmentData, leadId, onSaveSu
         if (!formValues.lead_id) errors.lead_id = 'El lead es requerido.';
         if (!formValues.fecha_hora) errors.fecha_hora = 'La fecha y hora son requeridas.';
         if (!formValues.lugar) errors.lugar = 'El lugar es requerido.';
+        if (!formValues.asesor_comercial_id && !formValues.asesor_presencial_id && !formValues.opc_personal_atendio_id) {
+            errors.atencion = 'Debe asignar al menos un Asesor Comercial, Presencial o Personal OPC de atención.';
+        }
         setFormErrors(errors);
         return Object.keys(errors).length === 0;
     };
@@ -124,6 +137,7 @@ function AppointmentFormModal({ open, onClose, appointmentData, leadId, onSaveSu
                 lead_id: Number(formValues.lead_id),
                 asesor_comercial_id: formValues.asesor_comercial_id ? Number(formValues.asesor_comercial_id) : null,
                 asesor_presencial_id: formValues.asesor_presencial_id ? Number(formValues.asesor_presencial_id) : null,
+                opc_personal_atendio_id: formValues.opc_personal_atendio_id ? Number(formValues.opc_personal_atendio_id) : null,
                 fecha_hora: moment(formValues.fecha_hora).toISOString(),
                 lugar: formValues.lugar,
                 estado: formValues.estado,
@@ -172,9 +186,9 @@ function AppointmentFormModal({ open, onClose, appointmentData, leadId, onSaveSu
                 ) : (
                     <form>
                         {error && <Alert severity="error" sx={{ my: 2 }}>{error}</Alert>}
-                        <Grid container spacing={2}> {/* Contenedor Grid para el formulario */}
+                        <Grid container spacing={2}>
                             <Grid item xs={12}>
-                                <FormControl fullWidth margin="normal"> {/* margin="normal" se puede quitar si el spacing del Grid es suficiente */}
+                                <FormControl fullWidth margin="normal" error={!!formErrors.lead_id}>
                                     <InputLabel>Lead</InputLabel>
                                     <Select
                                         name="lead_id"
@@ -261,6 +275,27 @@ function AppointmentFormModal({ open, onClose, appointmentData, leadId, onSaveSu
                                     </Select>
                                 </FormControl>
                             </Grid>
+                            {/* NUEVO CAMPO: Personal OPC que atendió */}
+                            <Grid item xs={12}>
+                                <FormControl fullWidth margin="normal" error={!!formErrors.atencion}>
+                                    <InputLabel>Personal OPC (Atención Directa)</InputLabel>
+                                    <Select
+                                        name="opc_personal_atendio_id"
+                                        label="Personal OPC (Atención Directa)"
+                                        value={formValues.opc_personal_atendio_id}
+                                        onChange={handleChange}
+                                        disabled={!!opcPersonnelId && opcPersonnelId === formValues.opc_personal_atendio_id}
+                                    >
+                                        <MenuItem value=""><em>(Seleccionar)</em></MenuItem>
+                                        {opcPersonnelList.map((opc) => (
+                                            <MenuItem key={opc.id} value={opc.id}>
+                                                {opc.nombre} ({opc.rol})
+                                            </MenuItem>
+                                        ))}
+                                    </Select>
+                                    {formErrors.atencion && <Typography color="error" variant="caption">{formErrors.atencion}</Typography>}
+                                </FormControl>
+                            </Grid>
                             <Grid item xs={12}>
                                 <FormControl fullWidth margin="normal">
                                     <InputLabel>Estado de la Cita</InputLabel>
@@ -290,7 +325,7 @@ function AppointmentFormModal({ open, onClose, appointmentData, leadId, onSaveSu
                                     rows={3}
                                 />
                             </Grid>
-                        </Grid> {/* Fin Contenedor Grid */}
+                        </Grid>
                     </form>
                 )}
             </DialogContent>

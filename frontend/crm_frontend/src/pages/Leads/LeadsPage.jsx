@@ -99,6 +99,7 @@ function LeadsPage() {
         asesor: filterAsesor,
         'fecha_creacion_after': filterFechaCreacionDesde,
         'fecha_creacion_before': filterFechaCreacionHasta,
+        is_opc_lead: false, // FILTRO CLAVE: Mostrar solo leads NO OPC
         ordering: '-fecha_creacion',
       };
 
@@ -228,7 +229,7 @@ function LeadsPage() {
 
       <Box sx={{ display: 'flex', gap: 2, mb: 3, flexWrap: 'wrap' }}>
         <TextField
-          label="Buscar Leads (Nombre, Celular, Proyecto, Distrito)"
+          label="Buscar Leads (Nombre, Celular, Ubicación, Distrito)" /* ETIQUETA ACTUALIZADA */
           variant="outlined"
           value={searchTerm}
           onChange={handleSearchChange}
@@ -330,8 +331,8 @@ function LeadsPage() {
                     <TableRow>
                       <TableCell>Nombre</TableCell>
                       <TableCell>Celular</TableCell>
-                      <TableCell>Proyecto</TableCell>
-                      <TableCell>Medio de Captación</TableCell>{/* NUEVO: Columna Medio de Captación */}
+                      <TableCell>Ubicación</TableCell>{/* ETIQUETA ACTUALIZADA */}
+                      <TableCell>Medio de Captación</TableCell>
                       <TableCell>Tipificación</TableCell>
                       <TableCell>Asesor</TableCell>
                       <TableCell>Última Actualización</TableCell>
@@ -343,8 +344,8 @@ function LeadsPage() {
                       <TableRow key={lead.id}>
                         <TableCell>{lead.nombre}</TableCell>
                         <TableCell>{lead.celular}</TableCell>
-                        <TableCell>{lead.proyecto}</TableCell>
-                        <TableCell>{lead.medio || 'N/A'}</TableCell>{/* NUEVO: Mostrar Medio de Captación */}
+                        <TableCell>{lead.ubicacion || 'N/A'}</TableCell>{/* CAMPO ACTUALIZADO */}
+                        <TableCell>{lead.medio || 'N/A'}</TableCell>
                         <TableCell>{lead.tipificacion}</TableCell>
                         <TableCell>{lead.asesor ? lead.asesor.username : 'N/A'}</TableCell>
                         <TableCell>{new Date(lead.ultima_actualizacion).toLocaleString()}</TableCell>
@@ -387,6 +388,7 @@ function LeadsPage() {
             onClose={handleCloseLeadFormModal}
             leadId={editingLeadId}
             onSaveSuccess={handleLeadSaveSuccess}
+            isOPCContext={false}
           />
         </Box>
       );

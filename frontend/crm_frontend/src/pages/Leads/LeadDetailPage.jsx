@@ -1,4 +1,3 @@
-// frontend/crm_frontend/src/pages/Leads/LeadDetailPage.jsx 
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
@@ -13,42 +12,45 @@ import {
   ListItem,
   ListItemText,
 } from '@mui/material';
-import { Edit as EditIcon, ArrowBack as ArrowBackIcon, Event as EventIcon } from '@mui/icons-material'; // Importar EventIcon
-import leadsService from '../../services/leads'; // 
-import LeadFormModal from '../../components/leads/LeadFormModal'; // 
-import AppointmentFormModal from '../../components/appointments/AppointmentFormModal'; // <-- NUEVA IMPORTACIÓN
+import { Edit as EditIcon, ArrowBack as ArrowBackIcon, Event as EventIcon } from '@mui/icons-material';
+import leadsService from '../../services/leads';
+import LeadFormModal from '../../components/leads/LeadFormModal';
+import AppointmentFormModal from '../../components/appointments/AppointmentFormModal';
+import useAuth from '../../hooks/useAuth';
 
+// Las tipificaciones que habilitan el botón de "Agendar Cita"
 const CITA_TIPIFICATIONS = [
   'CITA - SALA',
   'CITA - PROYECTO',
   'CITA - HxH',
   'CITA - ZOOM',
-  'CITA - POR CONFIRMAR' // Incluir si esta tipificación también debería permitir agendar cita
+  'CITA - POR CONFIRMAR'
 ];
 
 function LeadDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [lead, setLead] = useState(null);
   const [actions, setActions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
-  // Estados para el Modal de Edición de Lead
   const [openLeadFormModal, setOpenLeadFormModal] = useState(false);
   const [editingLeadId, setEditingLeadId] = useState(null);
 
-  // Estados para el Modal de Agendar Cita
   const [openAppointmentModal, setOpenAppointmentModal] = useState(false);
+  const [opcPersonnelIdForAppointment, setOpcPersonnelIdForAppointment] = useState(null);
+
 
   const fetchLeadAndActions = useCallback(async () => {
     setLoading(true);
     setError('');
     try {
-      const leadData = await leadsService.getLeadById(id); // 
+      const leadData = await leadsService.getLeadById(id);
       setLead(leadData);
 
-      const actionsData = await leadsService.getLeadActions(id); // 
+      const actionsData = await leadsService.getLeadActions(id);
       setActions(actionsData);
     } catch (err) {
       setError('Error al cargar los detalles del lead o sus acciones.');
@@ -62,7 +64,6 @@ function LeadDetailPage() {
     fetchLeadAndActions();
   }, [fetchLeadAndActions]);
 
-  // Handlers para el modal de Lead
   const handleOpenEditLeadModal = () => {
     setEditingLeadId(lead.id);
     setOpenLeadFormModal(true);
@@ -73,24 +74,36 @@ function LeadDetailPage() {
   };
 
   const handleLeadSaveSuccess = () => {
-    fetchLeadAndActions(); // Vuelve a cargar los datos del lead si se guardó correctamente
+    fetchLeadAndActions();
     handleCloseLeadFormModal();
   };
 
-  // Handlers para el modal de Citas
   const handleOpenAppointmentModal = () => {
+    if (user && user.opc_profile_id && lead && lead.personal_opc_captador && user.opc_profile_id === lead.personal_opc_captador.id) {
+        setOpcPersonnelIdForAppointment(user.opc_profile_id);
+    } else {
+        setOpcPersonnelIdForAppointment(null);
+    }
     setOpenAppointmentModal(true);
   };
 
   const handleCloseAppointmentModal = () => {
     setOpenAppointmentModal(false);
-    fetchLeadAndActions(); // Recargar el lead para ver si la tipificación cambió al agendar una cita
+    setOpcPersonnelIdForAppointment(null);
+    fetchLeadAndActions();
   };
 
   const handleAppointmentSaveSuccess = () => {
     handleCloseAppointmentModal();
-    fetchLeadAndActions(); // Recargar el lead y sus acciones después de guardar una cita
+    fetchLeadAndActions();
   };
+
+  const shouldShowScheduleButton = lead && CITA_TIPIFICATIONS.includes(lead.tipificacion);
+  const isOPCManaging = shouldShowScheduleButton && user && user.opc_profile_id && lead && lead.personal_opc_captador && user.opc_profile_id === lead.personal_opc_captador.id;
+
+  const isOpcLead = lead ? !!lead.personal_opc_captador_details : false;
+  const returnPath = isOpcLead ? '/opc-leads' : '/leads';
+
 
   if (loading) {
     return (
@@ -113,10 +126,10 @@ function LeadDetailPage() {
       <Button
         variant="outlined"
         startIcon={<ArrowBackIcon />}
-        onClick={() => navigate('/leads')}
+        onClick={() => navigate(returnPath)}
         sx={{ mb: 3 }}
       >
-        Volver a Leads
+        Volver a {isOpcLead ? "Leads OPC" : "Leads"}
       </Button>
       <Typography variant="h4" gutterBottom>
         Detalle del Lead: {lead.nombre}
@@ -128,26 +141,42 @@ function LeadDetailPage() {
             <strong>ID:</strong> {lead.id}
           </Typography>
           <Typography variant="body1">
-            <strong>Proyecto:</strong> {lead.proyecto}
+            <strong>Ubicación:</strong> {lead.ubicacion || 'N/A'}{/* CAMPO ACTUALIZADO */}
+          </Typography>
+          <Typography variant="body1">
+            <strong>Proyecto de Interés:</strong> {lead.proyecto_interes || 'N/A'}{/* NUEVO CAMPO */}
           </Typography>
           <Typography variant="body1">
             <strong>Celular:</strong> {lead.celular}
           </Typography>
           <Typography variant="body1">
-            <strong>Medio:</strong> {lead.medio}
+            <strong>Medio:</strong> {lead.medio || 'N/A'}
           </Typography>
           <Typography variant="body1">
-            <strong>Distrito:</strong> {lead.distrito}
+            <strong>Distrito:</strong> {lead.distrito || 'N/A'}
           </Typography>
           <Typography variant="body1">
-            <strong>Tipificación:</strong> {lead.tipificacion}
+            <strong>Tipificación:</strong> {lead.tipificacion || 'N/A'}
           </Typography>
           <Typography variant="body1">
             <strong>Asesor:</strong> {lead.asesor ? lead.asesor.username : 'N/A'}
           </Typography>
-          <Typography variant="body1">
-            <strong>OPC:</strong> {lead.opc || 'N/A'}
-          </Typography>
+          {isOpcLead && (
+            <>
+              <Typography variant="body1">
+                <strong>Personal OPC Captador:</strong> {lead.personal_opc_captador_details?.nombre || 'N/A'}
+              </Typography>
+              <Typography variant="body1">
+                <strong>Supervisor OPC Captador:</strong> {lead.supervisor_opc_captador_details?.nombre || 'N/A'}
+              </Typography>
+              <Typography variant="body1">
+                <strong>Fecha Captación:</strong> {lead.fecha_captacion || 'N/A'}
+              </Typography>
+              <Typography variant="body1">
+                <strong>Calle o Módulo:</strong> {lead.calle_o_modulo || 'N/A'}
+              </Typography>
+            </>
+          )}
           <Typography variant="body1" sx={{ gridColumn: '1 / -1' }}>
             <strong>Observación:</strong> {lead.observacion || 'N/A'}
           </Typography>
@@ -162,14 +191,14 @@ function LeadDetailPage() {
           </Typography>
         </Box>
         <Box sx={{ mt: 3, display: 'flex', justifyContent: 'flex-end', gap: 2 }}>
-          {CITA_TIPIFICATIONS.includes(lead.tipificacion) && (
+          {shouldShowScheduleButton && (
             <Button
               variant="contained"
-              color="success"
+              color={isOPCManaging ? "secondary" : "success"}
               startIcon={<EventIcon />}
               onClick={handleOpenAppointmentModal}
             >
-              Agendar Cita
+              {isOPCManaging ? "Agendar Cita (OPC)" : "Agendar Cita"}
             </Button>
           )}
           <Button
@@ -226,18 +255,18 @@ function LeadDetailPage() {
         )}
       </Paper>
 
-      {/* EL MODAL DE FORMULARIO DE LEADS SE RENDERIZA AQUÍ */}
       <LeadFormModal
         open={openLeadFormModal}
         onClose={handleCloseLeadFormModal}
         leadId={editingLeadId}
         onSaveSuccess={handleLeadSaveSuccess}
+        isOPCContext={isOpcLead}
       />
-      {/* EL MODAL DE FORMULARIO DE CITAS SE RENDERIZA AQUÍ */}
       <AppointmentFormModal
         open={openAppointmentModal}
         onClose={handleCloseAppointmentModal}
         leadId={lead.id}
+        opcPersonnelId={opcPersonnelIdForAppointment}
         onSaveSuccess={handleAppointmentSaveSuccess}
       />
     </Box>
