@@ -67,7 +67,6 @@ function OPCPersonnelPage() {
   const [filterFechaCaptacionHasta, setFilterFechaCaptacionHasta] = useState('');
 
 
-  const [opcPersonnelList, setOpcPersonnelList] = useState([]);
   const [opcSupervisorsList, setOpcSupervisorsList] = useState([]);
 
 
@@ -117,6 +116,14 @@ function OPCPersonnelPage() {
     }
   }, [page, rowsPerPage, searchTerm, filterRole, filterSupervisorOPC, filterFechaCaptacionDesde, filterFechaCaptacionHasta]);
 
+  const fetchFilterData = useCallback(async () => {
+    try {
+      const supervisorsData = await opcPersonnelService.getPersonnel({ rol: 'SUPERVISOR', page_size: 1000 });
+      setOpcSupervisorsList(supervisorsData.results || []);
+    } catch (err) {
+      console.error('Error fetching supervisors for filter:', err);
+    }
+  }, []);
 
   const fetchModalData = useCallback(async () => {
     try {
@@ -133,7 +140,8 @@ function OPCPersonnelPage() {
 
   useEffect(() => {
     fetchPersonnel();
-  }, [fetchPersonnel]);
+    fetchFilterData();
+  }, [fetchPersonnel, fetchFilterData]);
 
   const handleOpenNewPersonnelModal = () => {
     setEditingPersonnelId(null);
@@ -436,6 +444,7 @@ function OPCPersonnelPage() {
                   {...register('nombre', { required: 'El nombre es requerido.' })}
                   error={!!errors.nombre}
                   helperText={errors.nombre?.message}
+                  InputLabelProps={{ shrink: true }}
                 />
               </Grid>
               <Grid item xs={12} sm={6}>
@@ -444,6 +453,7 @@ function OPCPersonnelPage() {
                   variant="outlined"
                   fullWidth
                   {...register('telefono')}
+                  InputLabelProps={{ shrink: true }}
                 />
               </Grid>
               <Grid item xs={12}>
@@ -454,6 +464,7 @@ function OPCPersonnelPage() {
                   {...register('email', { pattern: { value: /^\S+@\S+$/i, message: 'Formato de email inválido.' } })}
                   error={!!errors.email}
                   helperText={errors.email?.message}
+                  InputLabelProps={{ shrink: true }}
                 />
               </Grid>
               <Grid item xs={12} sm={6}>
@@ -466,6 +477,7 @@ function OPCPersonnelPage() {
                     onChange={(e) => {
                       setValue('rol', e.target.value);
                     }}
+                    InputLabelProps={{ shrink: true }}
                   >
                     {ROLES_OPC_CHOICES.map((option) => (
                       <MenuItem key={option.value} value={option.value}>
@@ -486,6 +498,7 @@ function OPCPersonnelPage() {
                     onChange={(e) => {
                       setValue('supervisor', e.target.value);
                     }}
+                    InputLabelProps={{ shrink: true }}
                   >
                     <MenuItem value="">Sin Supervisor</MenuItem>
                     {supervisors.map((s) => (
@@ -506,6 +519,7 @@ function OPCPersonnelPage() {
                     onChange={(e) => {
                       setValue('user', e.target.value);
                     }}
+                    InputLabelProps={{ shrink: true }}
                   >
                     <MenuItem value="">Sin Usuario</MenuItem>
                     {allUsers.map((u) => (
@@ -526,6 +540,7 @@ function OPCPersonnelPage() {
                         variant="outlined"
                         fullWidth
                         {...register(`horario_semanal.${day}`)}
+                        InputLabelProps={{ shrink: true }}
                       />
                     </Grid>
                   ))}

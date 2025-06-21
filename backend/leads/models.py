@@ -103,6 +103,9 @@ class Lead(models.Model):
     supervisor_opc_captador = models.ForeignKey(OPCPersonnel, on_delete=models.SET_NULL, null=True, blank=True, related_name='leads_supervisados', limit_choices_to={'rol': 'SUPERVISOR'})
     fecha_captacion = models.DateField(blank=True, null=True)
 
+    # NUEVO CAMPO: Para rastrear mejor los leads OPC
+    es_lead_opc = models.BooleanField(default=False, help_text='Indica si este lead fue captado por personal OPC')
+
     # CORRECCIÓN: 'calle_o_modulo' ahora es un campo de opciones
     CALLE_MODULO_CHOICES = [
         ('CALLE', 'Calle'),
@@ -122,6 +125,11 @@ class Lead(models.Model):
     ]
     proyecto_interes = models.CharField(max_length=50, choices=PROYECTO_INTERES_CHOICES, blank=True, null=True)
 
+    def save(self, *args, **kwargs):
+        # Auto-marcar como lead OPC si tiene personal OPC asignado
+        if self.personal_opc_captador and not self.es_lead_opc:
+            self.es_lead_opc = True
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return f"{self.nombre} - {self.celular}"
@@ -171,3 +179,25 @@ class Appointment(models.Model):
 
     class Meta:
         ordering = ['fecha_hora']
+
+class LeadDuplicate(models.Model):
+    original_lead = models.ForeignKey(Lead, on_delete=models.SET_NULL, null=True, blank=True, related_name='duplicates')
+    nombre = models.CharField(max_length=255)
+    celular = models.CharField(max_length=20)
+    email = models.CharField(max_length=100, blank=True, null=True)
+    asesor = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
+    captador = models.ForeignKey(OPCPersonnel, on_delete=models.SET_NULL, null=True, blank=True)
+    fecha_interaccion = models.DateField(null=True, blank=True)
+    fecha_importacion = models.DateTimeField(auto_now_add=True)
+    estado = models.CharField(max_length=20, default='pendiente')  # pendiente, fusionado, ignorado, etc.
+    observacion = models.TextField(blank=True, null=True)
+    observacion_opc = models.TextField(blank=True, null=True)
+    proyecto_interes = models.CharField(max_length=50, blank=True, null=True)
+    ubicacion = models.CharField(max_length=255, blank=True, null=True)
+    medio = models.CharField(max_length=100, blank=True, null=True)
+    distrito = models.CharField(max_length=100, blank=True, null=True)
+    tipificacion = models.CharField(max_length=100, blank=True, null=True)
+    calle_o_modulo = models.CharField(max_length=10, blank=True, null=True)
+
+    def __str__(self):
+        return f"Duplicado: {self.nombre} - {self.celular} (Estado: {self.estado})"

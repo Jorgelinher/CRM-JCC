@@ -1,6 +1,6 @@
 // frontend/crm_frontend/src/pages/CsvUpload/CsvUploadPage.jsx
 import React, { useState } from 'react';
-import { Box, Typography, Button, CircularProgress, Alert, Paper, TextField } from '@mui/material';
+import { Box, Typography, Button, CircularProgress, Alert, Paper, TextField, List, ListItem, ListItemText } from '@mui/material';
 import { UploadFile as UploadFileIcon } from '@mui/icons-material';
 import leadsService from '../../services/leads'; // Tu servicio de leads
 
@@ -39,6 +39,8 @@ function CsvUploadPage() {
       setUploadResult({
         creados: response.leads_creados,
         actualizados: response.leads_actualizados,
+        duplicados: response.duplicados_detectados,
+        duplicados_guardados: response.duplicados_guardados,
         errores: response.errores || [],
       });
       setSelectedFile(null); // Limpiar el input de archivo
@@ -99,6 +101,16 @@ function CsvUploadPage() {
             )}
             {uploadResult.actualizados !== undefined && (
               <Typography variant="body1">Leads actualizados: {uploadResult.actualizados}</Typography>
+            )}
+            {uploadResult.duplicados !== undefined && (
+              <Typography variant="body1" color="warning.main">
+                Duplicados detectados: {uploadResult.duplicados} (puedes revisarlos y gestionarlos desde el panel de administración o la sección de duplicados)
+              </Typography>
+            )}
+            {uploadResult.duplicados_guardados !== undefined && (
+              <Typography variant="body2" color="text.secondary">
+                Duplicados pendientes de revisión: {uploadResult.duplicados_guardados}
+              </Typography>
             )}
             {uploadResult.errores.length > 0 && (
               <Alert severity="warning" sx={{ mt: 2 }}>

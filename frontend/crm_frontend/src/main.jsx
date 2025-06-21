@@ -15,6 +15,7 @@ import DashboardPage from './pages/Dashboard/DashboardPage.jsx';
 import CsvUploadPage from './pages/CsvUpload/CsvUploadPage.jsx';
 import OPCPersonnelPage from './pages/OPCPersonnel/OPCPersonnelPage.jsx';
 import OPCLeadsPage from './pages/OPCLeads/OPCLeadsPage.jsx'; // Asegúrate de que esta línea exista
+import DuplicateLeadsPage from './pages/Leads/DuplicateLeadsPage.jsx';
 import MainLayout from './components/layout/MainLayout.jsx';
 
 // Contexto de Autenticación y Hook
@@ -61,6 +62,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(
               <Route path="csv-upload" element={<CsvUploadPage />} />
               <Route path="opc-personnel" element={<OPCPersonnelPage />} />
               <Route path="opc-leads" element={<OPCLeadsPage />} /> {/* Asegúrate de que esta ruta exista */}
+              <Route path="leads/duplicados" element={<DuplicateLeadsPage />} />
             </Route>
 
             <Route path="*" element={<div>404: Página no encontrada</div>} />

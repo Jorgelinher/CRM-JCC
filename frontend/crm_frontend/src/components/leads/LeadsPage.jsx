@@ -96,10 +96,9 @@ function LeadsPage() {
         page_size: rowsPerPage,
         search: searchTerm,
         tipificacion: filterTipificacion,
-        asesor: filterAsesor,
+        asesor: filterAsesor === 'sin_asignar' ? 'null' : filterAsesor,
         'fecha_creacion_after': filterFechaCreacionDesde,
         'fecha_creacion_before': filterFechaCreacionHasta,
-        is_opc_lead: false, // FILTRO CLAVE: Mostrar solo leads NO OPC
         ordering: '-fecha_creacion',
       };
 
@@ -270,6 +269,7 @@ function LeadsPage() {
             label="Asesor"
           >
             <MenuItem value="">Todos los Asesores</MenuItem>
+            <MenuItem value="sin_asignar">Sin Asignar</MenuItem>
             {asesores.map((asesor) => (
                   <MenuItem key={asesor.id} value={asesor.id}>
                     {asesor.username}

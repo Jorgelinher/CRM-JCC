@@ -15,6 +15,7 @@ function MainLayout() {
   const navItems = [
     { text: 'Dashboard', path: '/dashboard' },
     { text: 'Leads', path: '/leads' },
+    { text: 'Leads Duplicados', path: '/leads/duplicados' },
     { text: 'Citas', path: '/appointments' },
     { text: 'Carga CSV', path: '/csv-upload' },
     { text: 'Personal OPC', path: '/opc-personnel' },

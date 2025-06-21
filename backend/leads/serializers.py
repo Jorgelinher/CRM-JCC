@@ -2,7 +2,7 @@
 
 from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
-from .models import Lead, User, Action, Appointment, OPCPersonnel
+from .models import Lead, User, Action, Appointment, OPCPersonnel, LeadDuplicate
 
 # CORRECCIÓN: Mover UserSerializer al principio del archivo
 class UserSerializer(serializers.ModelSerializer):
@@ -102,7 +102,8 @@ class LeadSerializer(serializers.ModelSerializer):
             'supervisor_opc_captador', 'supervisor_opc_captador_id',
             'personal_opc_captador_details', 'supervisor_opc_captador_details',
             'fecha_captacion',
-            'calle_o_modulo' # Campo con choices
+            'calle_o_modulo', # Campo con choices
+            'es_lead_opc', # NUEVO CAMPO: Para rastrear leads OPC
         ]
 
     def to_representation(self, instance):
@@ -206,3 +207,19 @@ class AppointmentSerializer(serializers.ModelSerializer):
 
     def update(self, instance, validated_data):
         return super().update(instance, validated_data)
+
+
+class LeadDuplicateSerializer(serializers.ModelSerializer):
+    original_lead_details = LeadSerializer(source='original_lead', read_only=True)
+    asesor_details = UserSerializer(source='asesor', read_only=True)
+    captador_details = OPCPersonnelSerializer(source='captador', read_only=True)
+
+    class Meta:
+        model = LeadDuplicate
+        fields = [
+            'id', 'original_lead', 'original_lead_details',
+            'nombre', 'celular', 'email', 'asesor', 'asesor_details',
+            'captador', 'captador_details', 'fecha_interaccion', 'fecha_importacion',
+            'estado', 'observacion', 'observacion_opc', 'proyecto_interes',
+            'ubicacion', 'medio', 'distrito', 'tipificacion', 'calle_o_modulo'
+        ]

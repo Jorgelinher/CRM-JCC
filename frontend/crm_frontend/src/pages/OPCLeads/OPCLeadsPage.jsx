@@ -21,6 +21,12 @@ import {
   Select,
   MenuItem,
   Tooltip,
+  Grid,
+  Card,
+  CardContent,
+  Chip,
+  Divider,
+  Badge,
 } from '@mui/material';
 import {
   Search as SearchIcon,
@@ -29,11 +35,16 @@ import {
   Delete as DeleteIcon,
   Visibility as ViewIcon,
   Add as AddIcon,
-  ClearAll as ClearAllIcon
+  ClearAll as ClearAllIcon,
+  Assessment as AssessmentIcon,
+  Person as PersonIcon,
+  Assignment as AssignmentIcon,
+  Schedule as ScheduleIcon,
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import leadsService from '../../services/leads';
 import opcPersonnelService from '../../services/opcPersonnel';
+import opcMetricsService from '../../services/opcMetrics';
 import LeadFormModal from '../../components/leads/LeadFormModal';
 
 const MEDIO_CAPTACION_CHOICES = [
@@ -44,6 +55,19 @@ const MEDIO_CAPTACION_CHOICES = [
   { value: 'Redes Sociales (WhatsApp)', label: 'Redes Sociales (WhatsApp)' },
   { value: 'Referidos', label: 'Referidos' },
 ];
+
+// Función para obtener el color del chip según la tipificación
+const getTipificacionColor = (tipificacion) => {
+  if (!tipificacion) return 'default';
+  
+  if (tipificacion.includes('CITA')) return 'success';
+  if (tipificacion === 'SEGUIMIENTO') return 'warning';
+  if (tipificacion.includes('NO INTERESADO')) return 'error';
+  if (tipificacion === 'NO CONTESTA') return 'info';
+  if (tipificacion === 'YA ASISTIO') return 'success';
+  
+  return 'default';
+};
 
 function OPCLeadsPage() {
   const navigate = useNavigate();
@@ -59,7 +83,6 @@ function OPCLeadsPage() {
   const [opcPersonnelList, setOpcPersonnelList] = useState([]);
   const [opcSupervisorsList, setOpcSupervisorsList] = useState([]);
 
-
   const [openLeadFormModal, setOpenLeadFormModal] = useState(false);
   const [editingLeadId, setEditingLeadId] = useState(null);
 
@@ -67,6 +90,9 @@ function OPCLeadsPage() {
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [totalLeads, setTotalLeads] = useState(0);
 
+  // Nuevo estado para métricas
+  const [metrics, setMetrics] = useState(null);
+  const [metricsLoading, setMetricsLoading] = useState(false);
 
   const fetchLeads = useCallback(async () => {
     setLoading(true);
@@ -99,6 +125,24 @@ function OPCLeadsPage() {
     }
   }, [page, rowsPerPage, searchTerm, filterPersonalOPC, filterSupervisorOPC, filterFechaCaptacionDesde, filterFechaCaptacionHasta]);
 
+  const fetchMetrics = useCallback(async () => {
+    setMetricsLoading(true);
+    try {
+      const params = {
+        personal_opc_id: filterPersonalOPC || undefined,
+        supervisor_opc_id: filterSupervisorOPC || undefined,
+        fecha_desde: filterFechaCaptacionDesde || undefined,
+        fecha_hasta: filterFechaCaptacionHasta || undefined,
+      };
+      
+      const data = await opcMetricsService.getOPCLeadsMetrics(params);
+      setMetrics(data);
+    } catch (err) {
+      console.error('Error fetching OPC metrics:', err);
+    } finally {
+      setMetricsLoading(false);
+    }
+  }, [filterPersonalOPC, filterSupervisorOPC, filterFechaCaptacionDesde, filterFechaCaptacionHasta]);
 
   const fetchOpcPersonnelForFilters = useCallback(async () => {
     try {
@@ -116,7 +160,8 @@ function OPCLeadsPage() {
   useEffect(() => {
     fetchOpcPersonnelForFilters();
     fetchLeads();
-  }, [fetchOpcPersonnelForFilters, fetchLeads]);
+    fetchMetrics();
+  }, [fetchOpcPersonnelForFilters, fetchLeads, fetchMetrics]);
 
   const handleOpenNewLeadModal = () => {
     setEditingLeadId(null);
@@ -134,6 +179,7 @@ function OPCLeadsPage() {
 
   const handleLeadSaveSuccess = () => {
     fetchLeads(); // Recargar la lista después de guardar
+    fetchMetrics(); // Recargar métricas
     handleCloseLeadFormModal();
   };
 
@@ -185,6 +231,7 @@ function OPCLeadsPage() {
       try {
         await leadsService.deleteLead(id);
         fetchLeads();
+        fetchMetrics();
       } catch (err) {
         setError('Error al eliminar el lead OPC.');
         console.error('Error deleting OPC lead:', err);
@@ -192,6 +239,9 @@ function OPCLeadsPage() {
     }
   };
 
+  const handleViewLeadDetail = (id) => {
+    navigate(`/leads/${id}`);
+  };
 
   return (
     <Box sx={{ p: 3 }}>
@@ -199,174 +249,364 @@ function OPCLeadsPage() {
         Gestión de Leads OPC
       </Typography>
 
-      <Box sx={{ display: 'flex', gap: 2, mb: 3, flexWrap: 'wrap', alignItems: 'center' }}>
-        <TextField
-          label="Buscar (Nombre, Celular, Calle/Módulo)"
-          variant="outlined"
-          value={searchTerm}
-          onChange={handleSearchChange}
-          sx={{ minWidth: 250 }}
-          InputProps={{
-            endAdornment: (
-              <InputAdornment position="end">
-                {searchTerm ? (
-                  <IconButton onClick={() => setSearchTerm('')} edge="end">
-                    <ClearIcon />
-                  </IconButton>
-                ) : (
-                  <SearchIcon />
-                )}
-              </InputAdornment>
-            ),
-          }}
-        />
-        <FormControl variant="outlined" sx={{ minWidth: 200 }}>
-          <InputLabel>Personal OPC</InputLabel>
-          <Select
-            value={filterPersonalOPC}
-            onChange={handleFilterPersonalOPCChange}
-            label="Personal OPC"
-          >
-            <MenuItem value="">Todos</MenuItem>
-            {opcPersonnelList.map((opc) => (
-              <MenuItem key={opc.id} value={opc.id}>
-                {opc.nombre}
-              </MenuItem>
-            ))}
-          </Select>
-        </FormControl>
-        <FormControl variant="outlined" sx={{ minWidth: 200 }}>
-          <InputLabel>Supervisor OPC</InputLabel>
-          <Select
-            value={filterSupervisorOPC}
-            onChange={handleFilterSupervisorOPCChange}
-            label="Supervisor OPC"
-          >
-            <MenuItem value="">Todos</MenuItem>
-            {opcSupervisorsList.map((sup) => (
-              <MenuItem key={sup.id} value={sup.id}>
-                {sup.nombre}
-              </MenuItem>
-            ))}
-          </Select>
-        </FormControl>
-        <TextField
-          label="Fecha Captación Desde"
-          type="date"
-          value={filterFechaCaptacionDesde}
-          onChange={handleFilterFechaCaptacionDesdeChange}
-          InputLabelProps={{ shrink: true }}
-          sx={{ minWidth: 180 }}
-        />
-        <TextField
-          label="Fecha Captación Hasta"
-          type="date"
-          value={filterFechaCaptacionHasta}
-          onChange={handleFilterFechaCaptacionHastaChange}
-          InputLabelProps={{ shrink: true }}
-          sx={{ minWidth: 180 }}
-        />
-        {(searchTerm || filterPersonalOPC || filterSupervisorOPC || filterFechaCaptacionDesde || filterFechaCaptacionHasta) && (
-          <Button
-            variant="outlined"
-            color="secondary"
-            startIcon={<ClearAllIcon />}
-            onClick={handleClearAllFilters}
-          >
-            Borrar Filtros
-          </Button>
-        )}
+      {/* Métricas */}
+      {metrics && (
+        <Box sx={{ mb: 3 }}>
+          <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+            <AssessmentIcon />
+            Métricas de Leads OPC
+          </Typography>
+          <Grid container spacing={3}>
+            <Grid item xs={12} sm={6} md={3}>
+              <Card sx={{ height: '100%', textAlign: 'center' }}>
+                <CardContent sx={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', height: '100%' }}>
+                  <Typography color="text.secondary" gutterBottom>
+                    Total Leads OPC
+                  </Typography>
+                  <Typography variant="h4" component="div" sx={{ fontWeight: 'bold' }}>
+                    {metrics.total_leads_opc}
+                  </Typography>
+                </CardContent>
+              </Card>
+            </Grid>
+            <Grid item xs={12} sm={6} md={3}>
+              <Card sx={{ height: '100%', textAlign: 'center' }}>
+                <CardContent sx={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', height: '100%' }}>
+                  <Typography color="text.secondary" gutterBottom>
+                    Asignados
+                  </Typography>
+                  <Typography variant="h4" component="div" sx={{ fontWeight: 'bold', color: 'success.main' }}>
+                    {metrics.leads_asignados}
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    {metrics.porcentaje_asignacion.toFixed(1)}% del total
+                  </Typography>
+                </CardContent>
+              </Card>
+            </Grid>
+            <Grid item xs={12} sm={6} md={3}>
+              <Card sx={{ height: '100%', textAlign: 'center' }}>
+                <CardContent sx={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', height: '100%' }}>
+                  <Typography color="text.secondary" gutterBottom>
+                    Sin Asignar
+                  </Typography>
+                  <Typography variant="h4" component="div" sx={{ fontWeight: 'bold', color: 'warning.main' }}>
+                    {metrics.leads_sin_asignar}
+                  </Typography>
+                </CardContent>
+              </Card>
+            </Grid>
+            <Grid item xs={12} sm={6} md={3}>
+              <Card sx={{ height: '100%', textAlign: 'center' }}>
+                <CardContent sx={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', height: '100%' }}>
+                  <Typography color="text.secondary" gutterBottom>
+                    Captados (últimos 30d)
+                  </Typography>
+                  <Typography variant="h4" component="div" sx={{ fontWeight: 'bold', color: 'info.main' }}>
+                    {metrics.leads_ultimos_30_dias}
+                  </Typography>
+                </CardContent>
+              </Card>
+            </Grid>
+          </Grid>
+        </Box>
+      )}
+
+      {/* Filtros */}
+      <Paper sx={{ p: 2, mb: 2 }}>
+        <Typography variant="h6" gutterBottom>
+          Filtros
+        </Typography>
+        <Grid container spacing={2} alignItems="center">
+          <Grid item xs={12} sm={6} md={3}>
+            <TextField
+              fullWidth
+              label="Buscar"
+              value={searchTerm}
+              onChange={handleSearchChange}
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <SearchIcon />
+                  </InputAdornment>
+                ),
+                endAdornment: searchTerm && (
+                  <InputAdornment position="end">
+                    <IconButton onClick={() => setSearchTerm('')}>
+                      <ClearIcon />
+                    </IconButton>
+                  </InputAdornment>
+                ),
+              }}
+            />
+          </Grid>
+          <Grid item xs={12} sm={6} md={2}>
+            <FormControl fullWidth>
+              <InputLabel>Personal OPC</InputLabel>
+              <Select
+                value={filterPersonalOPC}
+                onChange={handleFilterPersonalOPCChange}
+                label="Personal OPC"
+              >
+                <MenuItem value="">Todos</MenuItem>
+                {opcPersonnelList.map((personnel) => (
+                  <MenuItem key={personnel.id} value={personnel.id}>
+                    {personnel.nombre}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          </Grid>
+          <Grid item xs={12} sm={6} md={2}>
+            <FormControl fullWidth>
+              <InputLabel>Supervisor OPC</InputLabel>
+              <Select
+                value={filterSupervisorOPC}
+                onChange={handleFilterSupervisorOPCChange}
+                label="Supervisor OPC"
+              >
+                <MenuItem value="">Todos</MenuItem>
+                {opcSupervisorsList.map((supervisor) => (
+                  <MenuItem key={supervisor.id} value={supervisor.id}>
+                    {supervisor.nombre}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          </Grid>
+          <Grid item xs={12} sm={6} md={2}>
+            <TextField
+              fullWidth
+              type="date"
+              label="Fecha Desde"
+              value={filterFechaCaptacionDesde}
+              onChange={handleFilterFechaCaptacionDesdeChange}
+              InputLabelProps={{ shrink: true }}
+            />
+          </Grid>
+          <Grid item xs={12} sm={6} md={2}>
+            <TextField
+              fullWidth
+              type="date"
+              label="Fecha Hasta"
+              value={filterFechaCaptacionHasta}
+              onChange={handleFilterFechaCaptacionHastaChange}
+              InputLabelProps={{ shrink: true }}
+            />
+          </Grid>
+          <Grid item xs={12} sm={6} md={1}>
+            <Button
+              variant="outlined"
+              onClick={handleClearAllFilters}
+              startIcon={<ClearAllIcon />}
+              fullWidth
+            >
+              Limpiar
+            </Button>
+          </Grid>
+        </Grid>
+      </Paper>
+
+      {/* Botones de acción */}
+      <Box sx={{ mb: 2, display: 'flex', gap: 1 }}>
         <Button
           variant="contained"
-          color="primary"
-          startIcon={<AddIcon />}
           onClick={handleOpenNewLeadModal}
-          sx={{ ml: 'auto' }}
+          startIcon={<AddIcon />}
         >
           Nuevo Lead OPC
         </Button>
       </Box>
 
-      {loading && <CircularProgress sx={{ display: 'block', margin: 'auto' }} />}
-      {error && <Alert severity="error">{error}</Alert>}
-
-      {!loading && !error && leads.length === 0 && (
-        <Typography variant="body1" align="center" sx={{ mt: 3 }}>
-          No se encontraron leads OPC.
-        </Typography>
-      )}
-
-      {!loading && !error && leads.length > 0 && (
-        <Paper elevation={2}>
-          <TableContainer>
-            <Table>
-              <TableHead>
-                <TableRow>
-                  <TableCell>Nombre Lead</TableCell>
-                  <TableCell>Teléfono Lead</TableCell>
-                  <TableCell>Ubicación</TableCell>
-                  <TableCell>Proyecto de Interés</TableCell>
-                  <TableCell>Medio de Captación</TableCell>
-                  <TableCell>Personal OPC</TableCell>
-                  <TableCell>Supervisor OPC</TableCell>
-                  <TableCell>Fecha Captación</TableCell>
-                  <TableCell>Calle/Módulo</TableCell>
-                  <TableCell>Tipificación</TableCell>
-                  <TableCell align="right">Acciones</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {leads.map((lead) => (
-                  <TableRow key={lead.id}>
-                    <TableCell>{lead.nombre}</TableCell>
-                    <TableCell>{lead.celular}</TableCell>
-                    <TableCell>{lead.ubicacion || 'N/A'}</TableCell>
-                    <TableCell>{lead.proyecto_interes || 'N/A'}</TableCell>
-                    <TableCell>{lead.medio || 'N/A'}</TableCell>
-                    <TableCell>{lead.personal_opc_captador_details ? lead.personal_opc_captador_details.nombre : 'N/A'}</TableCell>
-                    <TableCell>{lead.supervisor_opc_captador_details ? lead.supervisor_opc_captador_details.nombre : 'N/A'}</TableCell>
-                    <TableCell>{lead.fecha_captacion || 'N/A'}</TableCell>
-                    <TableCell>{lead.calle_o_modulo || 'N/A'}</TableCell>
-                    <TableCell>{lead.tipificacion}</TableCell>
-                    <TableCell align="right">
-                      <Tooltip title="Ver Detalles">
-                        <IconButton onClick={() => navigate(`/leads/${lead.id}`)}>
-                          <ViewIcon color="info" />
-                        </IconButton>
-                      </Tooltip>
-                      <Tooltip title="Editar Lead OPC">
-                        <IconButton onClick={() => handleOpenEditLeadModal(lead.id)}>
-                          <EditIcon color="warning" />
-                        </IconButton>
-                      </Tooltip>
-                      <Tooltip title="Eliminar Lead OPC">
-                        <IconButton onClick={() => handleDeleteLead(lead.id)}>
-                          <DeleteIcon color="error" />
-                        </IconButton>
-                      </Tooltip>
-                    </TableCell>
+      {/* Tabla de leads */}
+      <Paper>
+        {loading ? (
+          <Box sx={{ display: 'flex', justifyContent: 'center', p: 3 }}>
+            <CircularProgress />
+          </Box>
+        ) : error ? (
+          <Alert severity="error" sx={{ m: 2 }}>{error}</Alert>
+        ) : (
+          <>
+            <TableContainer>
+              <Table>
+                <TableHead>
+                  <TableRow>
+                    <TableCell>Nombre</TableCell>
+                    <TableCell>Celular</TableCell>
+                    <TableCell>Personal OPC</TableCell>
+                    <TableCell>Supervisor OPC</TableCell>
+                    <TableCell>Fecha Captación</TableCell>
+                    <TableCell>Asesor Asignado</TableCell>
+                    <TableCell>Tipificación Asesor</TableCell>
+                    <TableCell>Proyecto Interés</TableCell>
+                    <TableCell>Medio</TableCell>
+                    <TableCell>Acciones</TableCell>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </TableContainer>
-          <TablePagination
-            component="div"
-            count={totalLeads}
-            page={page}
-            onPageChange={handleChangePage}
-            rowsPerPage={rowsPerPage}
-            onRowsPerPageChange={handleChangeRowsPerPage}
-            labelRowsPerPage="Filas por página:"
-            labelDisplayedRows={({ from, to, count }) => `${from}-${to} de ${count}`}
-          />
-        </Paper>
-      )}
+                </TableHead>
+                <TableBody>
+                  {leads.map((lead) => (
+                    <TableRow key={lead.id} hover>
+                      <TableCell>
+                        <Typography variant="body2" fontWeight="medium">
+                          {lead.nombre}
+                        </Typography>
+                      </TableCell>
+                      <TableCell>{lead.celular}</TableCell>
+                      <TableCell>
+                        {lead.personal_opc_captador_details ? (
+                          <Box>
+                            <Typography variant="body2" fontWeight="medium">
+                              {lead.personal_opc_captador_details.nombre}
+                            </Typography>
+                            <Chip 
+                              label={lead.personal_opc_captador_details.rol} 
+                              size="small" 
+                              color="primary" 
+                              variant="outlined"
+                            />
+                          </Box>
+                        ) : (
+                          <Typography variant="body2" color="textSecondary">
+                            No asignado
+                          </Typography>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        {lead.supervisor_opc_captador_details ? (
+                          <Typography variant="body2">
+                            {lead.supervisor_opc_captador_details.nombre}
+                          </Typography>
+                        ) : (
+                          <Typography variant="body2" color="textSecondary">
+                            No asignado
+                          </Typography>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        {lead.fecha_captacion ? (
+                          new Date(lead.fecha_captacion).toLocaleDateString('es-ES')
+                        ) : (
+                          <Typography variant="body2" color="textSecondary">
+                            No especificada
+                          </Typography>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        {lead.asesor_details ? (
+                          <Box>
+                            <Typography variant="body2" fontWeight="medium">
+                              {lead.asesor_details.first_name} {lead.asesor_details.last_name}
+                            </Typography>
+                            <Typography variant="caption" color="textSecondary">
+                              @{lead.asesor_details.username}
+                            </Typography>
+                          </Box>
+                        ) : (
+                          <Chip 
+                            label="Sin asignar" 
+                            size="small" 
+                            color="warning" 
+                            variant="outlined"
+                          />
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        {lead.tipificacion ? (
+                          <Chip 
+                            label={lead.tipificacion} 
+                            size="small" 
+                            color={getTipificacionColor(lead.tipificacion)}
+                            variant="filled"
+                          />
+                        ) : (
+                          <Typography variant="body2" color="textSecondary">
+                            Sin tipificar
+                          </Typography>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        {lead.proyecto_interes ? (
+                          <Chip 
+                            label={lead.proyecto_interes} 
+                            size="small" 
+                            color="info" 
+                            variant="outlined"
+                          />
+                        ) : (
+                          <Typography variant="body2" color="textSecondary">
+                            No especificado
+                          </Typography>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        {lead.medio ? (
+                          <Typography variant="body2">
+                            {lead.medio}
+                          </Typography>
+                        ) : (
+                          <Typography variant="body2" color="textSecondary">
+                            No especificado
+                          </Typography>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <Box sx={{ display: 'flex', gap: 0.5 }}>
+                          <Tooltip title="Ver detalles">
+                            <IconButton
+                              size="small"
+                              onClick={() => handleViewLeadDetail(lead.id)}
+                              color="primary"
+                            >
+                              <ViewIcon />
+                            </IconButton>
+                          </Tooltip>
+                          <Tooltip title="Editar">
+                            <IconButton
+                              size="small"
+                              onClick={() => handleOpenEditLeadModal(lead.id)}
+                              color="warning"
+                            >
+                              <EditIcon />
+                            </IconButton>
+                          </Tooltip>
+                          <Tooltip title="Eliminar">
+                            <IconButton
+                              size="small"
+                              onClick={() => handleDeleteLead(lead.id)}
+                              color="error"
+                            >
+                              <DeleteIcon />
+                            </IconButton>
+                          </Tooltip>
+                        </Box>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </TableContainer>
+            
+            <TablePagination
+              component="div"
+              count={totalLeads}
+              page={page}
+              onPageChange={handleChangePage}
+              rowsPerPage={rowsPerPage}
+              onRowsPerPageChange={handleChangeRowsPerPage}
+              labelRowsPerPage="Filas por página:"
+              labelDisplayedRows={({ from, to, count }) => `${from}-${to} de ${count}`}
+            />
+          </>
+        )}
+      </Paper>
+
+      {/* Modal para crear/editar lead */}
       <LeadFormModal
         open={openLeadFormModal}
         onClose={handleCloseLeadFormModal}
-        leadId={editingLeadId}
         onSaveSuccess={handleLeadSaveSuccess}
+        leadId={editingLeadId}
         isOPCContext={true}
       />
     </Box>

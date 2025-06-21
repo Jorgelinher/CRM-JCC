@@ -4,6 +4,7 @@ import {
   TextField, Button, MenuItem, FormControl, InputLabel, Select,
   CircularProgress, Alert, Typography, Box,
   Grid,
+  Autocomplete,
 } from '@mui/material';
 import moment from 'moment';
 import appointmentsService from '../../services/appointments';
@@ -34,7 +35,15 @@ function AppointmentFormModal({ open, onClose, appointmentData, leadId, onSaveSu
     const [leads, setLeads] = useState([]);
     const [asesores, setAsesores] = useState([]);
     const [opcPersonnelList, setOpcPersonnelList] = useState([]);
-
+    const [asesorLoading, setAsesorLoading] = useState(false);
+    const [asesorOptions, setAsesorOptions] = useState([]);
+    const [asesorInput, setAsesorInput] = useState('');
+    const [leadLoading, setLeadLoading] = useState(false);
+    const [leadOptions, setLeadOptions] = useState([]);
+    const [leadInput, setLeadInput] = useState('');
+    const [opcLoading, setOpcLoading] = useState(false);
+    const [opcOptions, setOpcOptions] = useState([]);
+    const [opcInput, setOpcInput] = useState('');
 
     const [formValues, setFormValues] = useState({
         lead_id: '',
@@ -107,6 +116,81 @@ function AppointmentFormModal({ open, onClose, appointmentData, leadId, onSaveSu
         };
         initializeFormValues();
     }, [open, appointmentData, leadId, opcPersonnelId, fetchSelectionsData]);
+
+    // Búsqueda asíncrona de asesores para el Autocomplete
+    useEffect(() => {
+        let active = true;
+        if (asesorInput === '') {
+            setAsesorOptions([]);
+            return undefined;
+        }
+        setAsesorLoading(true);
+        leadsService.getUsers({ search: asesorInput, page_size: 10, ordering: 'username' })
+            .then(data => {
+                if (active) {
+                    setAsesorOptions(data.results || []);
+                }
+            })
+            .catch(() => {
+                if (active) setAsesorOptions([]);
+            })
+            .finally(() => {
+                if (active) setAsesorLoading(false);
+            });
+        return () => {
+            active = false;
+        };
+    }, [asesorInput]);
+
+    // Búsqueda asíncrona de leads para el Autocomplete
+    useEffect(() => {
+        let active = true;
+        if (leadInput === '') {
+            setLeadOptions([]);
+            return undefined;
+        }
+        setLeadLoading(true);
+        leadsService.getLeads({ search: leadInput, page_size: 10, ordering: 'nombre' })
+            .then(data => {
+                if (active) {
+                    setLeadOptions(data.results || []);
+                }
+            })
+            .catch(() => {
+                if (active) setLeadOptions([]);
+            })
+            .finally(() => {
+                if (active) setLeadLoading(false);
+            });
+        return () => {
+            active = false;
+        };
+    }, [leadInput]);
+
+    // Búsqueda asíncrona de personal OPC para el Autocomplete
+    useEffect(() => {
+        let active = true;
+        if (opcInput === '') {
+            setOpcOptions([]);
+            return undefined;
+        }
+        setOpcLoading(true);
+        opcPersonnelService.getPersonnel({ search: opcInput, page_size: 10 })
+            .then(data => {
+                if (active) {
+                    setOpcOptions(data.results || []);
+                }
+            })
+            .catch(() => {
+                if (active) setOpcOptions([]);
+            })
+            .finally(() => {
+                if (active) setOpcLoading(false);
+            });
+        return () => {
+            active = false;
+        };
+    }, [opcInput]);
 
     const handleChange = (e) => {
         const { name, value } = e.target;
@@ -188,24 +272,38 @@ function AppointmentFormModal({ open, onClose, appointmentData, leadId, onSaveSu
                         {error && <Alert severity="error" sx={{ my: 2 }}>{error}</Alert>}
                         <Grid container spacing={2}>
                             <Grid item xs={12}>
-                                <FormControl fullWidth margin="normal" error={!!formErrors.lead_id}>
-                                    <InputLabel>Lead</InputLabel>
-                                    <Select
-                                        name="lead_id"
-                                        label="Lead"
-                                        value={formValues.lead_id}
-                                        onChange={handleChange}
-                                        disabled={!!appointmentData || !!leadId}
-                                    >
-                                        <MenuItem value=""><em>Seleccione un Lead</em></MenuItem>
-                                        {leads.map((lead) => (
-                                            <MenuItem key={lead.id} value={lead.id}>
-                                                {lead.nombre} ({lead.celular})
-                                            </MenuItem>
-                                        ))}
-                                    </Select>
-                                    {formErrors.lead_id && <Typography color="error" variant="caption">{formErrors.lead_id}</Typography>}
-                                </FormControl>
+                                <Autocomplete
+                                    fullWidth
+                                    options={leadOptions}
+                                    getOptionLabel={(option) => option.nombre ? `${option.nombre} (${option.celular || ''})` : ''}
+                                    loading={leadLoading}
+                                    value={leadOptions.find(opt => opt.id === formValues.lead_id) || null}
+                                    onChange={(_, newValue) => {
+                                        setFormValues(prev => ({ ...prev, lead_id: newValue ? newValue.id : '' }));
+                                        setFormErrors(prev => ({ ...prev, lead_id: '' }));
+                                    }}
+                                    onInputChange={(_, newInput) => setLeadInput(newInput)}
+                                    disabled={!!appointmentData || !!leadId}
+                                    renderInput={(params) => (
+                                        <TextField
+                                            {...params}
+                                            label="Lead"
+                                            margin="normal"
+                                            error={!!formErrors.lead_id}
+                                            helperText={formErrors.lead_id}
+                                            InputProps={{
+                                                ...params.InputProps,
+                                                endAdornment: (
+                                                    <>
+                                                        {leadLoading ? <CircularProgress color="inherit" size={20} /> : null}
+                                                        {params.InputProps.endAdornment}
+                                                    </>
+                                                ),
+                                            }}
+                                            InputLabelProps={{ shrink: true }}
+                                        />
+                                    )}
+                                />
                             </Grid>
                             <Grid item xs={12} sm={6}>
                                 <TextField
@@ -229,6 +327,7 @@ function AppointmentFormModal({ open, onClose, appointmentData, leadId, onSaveSu
                                         label="Ubicación"
                                         value={formValues.lugar}
                                         onChange={handleChange}
+                                        InputLabelProps={{ shrink: true }}
                                     >
                                         {UBICACION_CHOICES.map((option) => (
                                             <MenuItem key={option.value} value={option.value}>
@@ -240,61 +339,100 @@ function AppointmentFormModal({ open, onClose, appointmentData, leadId, onSaveSu
                                 </FormControl>
                             </Grid>
                             <Grid item xs={12} sm={6}>
-                                <FormControl fullWidth margin="normal">
-                                    <InputLabel>Asesor Comercial</InputLabel>
-                                    <Select
-                                        name="asesor_comercial_id"
-                                        label="Asesor Comercial"
-                                        value={formValues.asesor_comercial_id}
-                                        onChange={handleChange}
-                                    >
-                                        <MenuItem value=""><em>(Automático o Seleccionar)</em></MenuItem>
-                                        {asesores.map((asesor) => (
-                                            <MenuItem key={asesor.id} value={asesor.id}>
-                                                {asesor.username}
-                                            </MenuItem>
-                                        ))}
-                                    </Select>
-                                </FormControl>
+                                <Autocomplete
+                                    fullWidth
+                                    options={asesorOptions}
+                                    getOptionLabel={(option) => option.username || ''}
+                                    loading={asesorLoading}
+                                    value={asesorOptions.find(opt => opt.id === formValues.asesor_comercial_id) || null}
+                                    onChange={(_, newValue) => {
+                                        setFormValues(prev => ({ ...prev, asesor_comercial_id: newValue ? newValue.id : '' }));
+                                        setFormErrors(prev => ({ ...prev, asesor_comercial_id: '' }));
+                                    }}
+                                    onInputChange={(_, newInput) => setAsesorInput(newInput)}
+                                    renderInput={(params) => (
+                                        <TextField
+                                            {...params}
+                                            label="Asesor Comercial"
+                                            margin="normal"
+                                            InputProps={{
+                                                ...params.InputProps,
+                                                endAdornment: (
+                                                    <>
+                                                        {asesorLoading ? <CircularProgress color="inherit" size={20} /> : null}
+                                                        {params.InputProps.endAdornment}
+                                                    </>
+                                                ),
+                                            }}
+                                            InputLabelProps={{ shrink: true }}
+                                        />
+                                    )}
+                                />
                             </Grid>
                             <Grid item xs={12} sm={6}>
-                                <FormControl fullWidth margin="normal">
-                                    <InputLabel>Asesor Presencial</InputLabel>
-                                    <Select
-                                        name="asesor_presencial_id"
-                                        label="Asesor Presencial"
-                                        value={formValues.asesor_presencial_id}
-                                        onChange={handleChange}
-                                    >
-                                        <MenuItem value=""><em>(Seleccionar)</em></MenuItem>
-                                        {asesores.map((asesor) => (
-                                            <MenuItem key={asesor.id} value={asesor.id}>
-                                                {asesor.username}
-                                            </MenuItem>
-                                        ))}
-                                    </Select>
-                                </FormControl>
+                                <Autocomplete
+                                    fullWidth
+                                    options={asesorOptions}
+                                    getOptionLabel={(option) => option.username || ''}
+                                    loading={asesorLoading}
+                                    value={asesorOptions.find(opt => opt.id === formValues.asesor_presencial_id) || null}
+                                    onChange={(_, newValue) => {
+                                        setFormValues(prev => ({ ...prev, asesor_presencial_id: newValue ? newValue.id : '' }));
+                                        setFormErrors(prev => ({ ...prev, asesor_presencial_id: '' }));
+                                    }}
+                                    onInputChange={(_, newInput) => setAsesorInput(newInput)}
+                                    renderInput={(params) => (
+                                        <TextField
+                                            {...params}
+                                            label="Asesor Presencial"
+                                            margin="normal"
+                                            InputProps={{
+                                                ...params.InputProps,
+                                                endAdornment: (
+                                                    <>
+                                                        {asesorLoading ? <CircularProgress color="inherit" size={20} /> : null}
+                                                        {params.InputProps.endAdornment}
+                                                    </>
+                                                ),
+                                            }}
+                                            InputLabelProps={{ shrink: true }}
+                                        />
+                                    )}
+                                />
                             </Grid>
-                            {/* NUEVO CAMPO: Personal OPC que atendió */}
                             <Grid item xs={12}>
-                                <FormControl fullWidth margin="normal" error={!!formErrors.atencion}>
-                                    <InputLabel>Personal OPC (Atención Directa)</InputLabel>
-                                    <Select
-                                        name="opc_personal_atendio_id"
-                                        label="Personal OPC (Atención Directa)"
-                                        value={formValues.opc_personal_atendio_id}
-                                        onChange={handleChange}
-                                        disabled={!!opcPersonnelId && opcPersonnelId === formValues.opc_personal_atendio_id}
-                                    >
-                                        <MenuItem value=""><em>(Seleccionar)</em></MenuItem>
-                                        {opcPersonnelList.map((opc) => (
-                                            <MenuItem key={opc.id} value={opc.id}>
-                                                {opc.nombre} ({opc.rol})
-                                            </MenuItem>
-                                        ))}
-                                    </Select>
-                                    {formErrors.atencion && <Typography color="error" variant="caption">{formErrors.atencion}</Typography>}
-                                </FormControl>
+                                <Autocomplete
+                                    fullWidth
+                                    options={opcOptions}
+                                    getOptionLabel={(option) => option.nombre ? `${option.nombre} (${option.rol || ''})` : ''}
+                                    loading={opcLoading}
+                                    value={opcOptions.find(opt => opt.id === formValues.opc_personal_atendio_id) || null}
+                                    onChange={(_, newValue) => {
+                                        setFormValues(prev => ({ ...prev, opc_personal_atendio_id: newValue ? newValue.id : '' }));
+                                        setFormErrors(prev => ({ ...prev, opc_personal_atendio_id: '' }));
+                                    }}
+                                    onInputChange={(_, newInput) => setOpcInput(newInput)}
+                                    disabled={!!opcPersonnelId && opcPersonnelId === formValues.opc_personal_atendio_id}
+                                    renderInput={(params) => (
+                                        <TextField
+                                            {...params}
+                                            label="Personal OPC (Atención Directa)"
+                                            margin="normal"
+                                            error={!!formErrors.atencion}
+                                            helperText={formErrors.atencion}
+                                            InputProps={{
+                                                ...params.InputProps,
+                                                endAdornment: (
+                                                    <>
+                                                        {opcLoading ? <CircularProgress color="inherit" size={20} /> : null}
+                                                        {params.InputProps.endAdornment}
+                                                    </>
+                                                ),
+                                            }}
+                                            InputLabelProps={{ shrink: true }}
+                                        />
+                                    )}
+                                />
                             </Grid>
                             <Grid item xs={12}>
                                 <FormControl fullWidth margin="normal">
@@ -304,6 +442,7 @@ function AppointmentFormModal({ open, onClose, appointmentData, leadId, onSaveSu
                                         label="Estado de la Cita"
                                         value={formValues.estado}
                                         onChange={handleChange}
+                                        InputLabelProps={{ shrink: true }}
                                     >
                                         {ESTADO_CITA_CHOICES.map((option) => (
                                             <MenuItem key={option.value} value={option.value}>
@@ -323,6 +462,7 @@ function AppointmentFormModal({ open, onClose, appointmentData, leadId, onSaveSu
                                     margin="normal"
                                     multiline
                                     rows={3}
+                                    InputLabelProps={{ shrink: true }}
                                 />
                             </Grid>
                         </Grid>

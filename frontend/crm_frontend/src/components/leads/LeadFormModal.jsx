@@ -16,6 +16,7 @@ import {
   DialogContent,
   DialogActions,
   Grid,
+  Autocomplete,
 } from '@mui/material';
 import leadsService from '../../services/leads';
 import opcPersonnelService from '../../services/opcPersonnel';
@@ -97,6 +98,15 @@ function LeadFormModal({ open, onClose, leadId, onSaveSuccess, isOPCContext = fa
   const [asesores, setAsesores] = useState([]);
   const [opcPersonnelList, setOpcPersonnelList] = useState([]);
   const [opcSupervisorsList, setOpcSupervisorsList] = useState([]);
+  const [asesorLoading, setAsesorLoading] = useState(false);
+  const [asesorOptions, setAsesorOptions] = useState([]);
+  const [asesorInput, setAsesorInput] = useState('');
+  const [opcLoading, setOpcLoading] = useState(false);
+  const [opcOptions, setOpcOptions] = useState([]);
+  const [opcInput, setOpcInput] = useState('');
+  const [supervisorOpcLoading, setSupervisorOpcLoading] = useState(false);
+  const [supervisorOpcOptions, setSupervisorOpcOptions] = useState([]);
+  const [supervisorOpcInput, setSupervisorOpcInput] = useState('');
 
 
   const { register, handleSubmit, reset, formState: { errors }, watch, setValue } = useForm({
@@ -215,6 +225,93 @@ function LeadFormModal({ open, onClose, leadId, onSaveSuccess, isOPCContext = fa
   const isMedioCampoCentrosComerciales = watchedMedioCaptacion === 'Campo (Centros Comerciales)';
   const shouldEnableOpcFields = isOPCContext || isMedioCampoCentrosComerciales;
 
+  // Búsqueda asíncrona de asesores para el Autocomplete
+  useEffect(() => {
+    let active = true;
+    if (asesorInput === '') {
+      setAsesorOptions([]);
+      return undefined;
+    }
+    setAsesorLoading(true);
+    leadsService.getUsers({ search: asesorInput, page_size: 10, ordering: 'username' })
+      .then(data => {
+        if (active) {
+          setAsesorOptions(data.results || []);
+        }
+      })
+      .catch(() => {
+        if (active) setAsesorOptions([]);
+      })
+      .finally(() => {
+        if (active) setAsesorLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [asesorInput]);
+
+  // Búsqueda asíncrona de personal OPC para el Autocomplete
+  useEffect(() => {
+    let active = true;
+    // Si el input está vacío, cargar los primeros 10 OPC por defecto
+    if (opcInput === '') {
+      setOpcLoading(true);
+      opcPersonnelService.getPersonnel({ page_size: 10 })
+        .then(data => {
+          if (active) {
+            setOpcOptions(data.results || []);
+          }
+        })
+        .catch(() => {
+          if (active) setOpcOptions([]);
+        })
+        .finally(() => {
+          if (active) setOpcLoading(false);
+        });
+      return () => { active = false; };
+    }
+    setOpcLoading(true);
+    opcPersonnelService.getPersonnel({ search: opcInput, page_size: 10 })
+      .then(data => {
+        if (active) {
+          setOpcOptions(data.results || []);
+        }
+      })
+      .catch(() => {
+        if (active) setOpcOptions([]);
+      })
+      .finally(() => {
+        if (active) setOpcLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [opcInput]);
+
+  // Búsqueda asíncrona de supervisores OPC para el Autocomplete
+  useEffect(() => {
+    let active = true;
+    if (supervisorOpcInput === '') {
+      setSupervisorOpcOptions([]);
+      return undefined;
+    }
+    setSupervisorOpcLoading(true);
+    opcPersonnelService.getPersonnel({ search: supervisorOpcInput, page_size: 10, rol: 'SUPERVISOR' })
+      .then(data => {
+        if (active) {
+          setSupervisorOpcOptions(data.results || []);
+        }
+      })
+      .catch(() => {
+        if (active) setSupervisorOpcOptions([]);
+      })
+      .finally(() => {
+        if (active) setSupervisorOpcLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [supervisorOpcInput]);
 
   const onSubmit = async (data) => {
     setSubmitting(true);
@@ -275,6 +372,7 @@ function LeadFormModal({ open, onClose, leadId, onSaveSuccess, isOPCContext = fa
                   {...register('nombre', { required: 'El nombre es requerido' })}
                   error={!!errors.nombre}
                   helperText={errors.nombre?.message}
+                  InputLabelProps={{ shrink: true }}
                 />
               </Grid>
               <Grid item xs={12} sm={6}>
@@ -289,6 +387,7 @@ function LeadFormModal({ open, onClose, leadId, onSaveSuccess, isOPCContext = fa
                   })}
                   error={!!errors.celular}
                   helperText={errors.celular?.message}
+                  InputLabelProps={{ shrink: true }}
                 />
               </Grid>
               
@@ -301,6 +400,7 @@ function LeadFormModal({ open, onClose, leadId, onSaveSuccess, isOPCContext = fa
                     value={watch('ubicacion') || ''}
                     {...register('ubicacion', { required: isOPCContext || shouldEnableOpcFields })}
                     disabled={!isOPCContext && !shouldEnableOpcFields}
+                    InputLabelProps={{ shrink: true }}
                   >
                     {UBICACION_CHOICES.map((option) => (
                       <MenuItem key={option.value} value={option.value}>
@@ -318,6 +418,7 @@ function LeadFormModal({ open, onClose, leadId, onSaveSuccess, isOPCContext = fa
                     label="Proyecto de Interés"
                     value={watch('proyecto_interes') || ''}
                     {...register('proyecto_interes', { required: true })}
+                    InputLabelProps={{ shrink: true }}
                   >
                     {PROYECTO_INTERES_CHOICES.map((option) => (
                       <MenuItem key={option.value} value={option.value}>
@@ -338,6 +439,7 @@ function LeadFormModal({ open, onClose, leadId, onSaveSuccess, isOPCContext = fa
                     value={watch('medio') || ''}
                     {...register('medio')}
                     disabled={isOPCContext && !leadId}
+                    InputLabelProps={{ shrink: true }}
                   >
                     {MEDIO_CAPTACION_CHOICES.map((option) => (
                       <MenuItem key={option.value} value={option.value}>
@@ -354,6 +456,7 @@ function LeadFormModal({ open, onClose, leadId, onSaveSuccess, isOPCContext = fa
                   fullWidth
                   margin="normal"
                   {...register('distrito')}
+                  InputLabelProps={{ shrink: true }}
                 />
               </Grid>
               <Grid item xs={12} sm={6}>
@@ -362,7 +465,7 @@ function LeadFormModal({ open, onClose, leadId, onSaveSuccess, isOPCContext = fa
                   <Select
                     label="Tipificación"
                     value={watchedTipificacion}
-                    {...register('tipificacion', { required: !isOPCContext })}
+                    {...register('tipificacion')}
                   >
                     {TIPIFICACION_CHOICES.map((option) => (
                       <MenuItem key={option.value} value={option.value}>
@@ -370,65 +473,70 @@ function LeadFormModal({ open, onClose, leadId, onSaveSuccess, isOPCContext = fa
                       </MenuItem>
                     ))}
                   </Select>
-                  {errors.tipificacion && <Typography color="error" variant="caption">{errors.tipificacion.message}</Typography>}
                 </FormControl>
               </Grid>
               <Grid item xs={12}>
-                <FormControl fullWidth margin="normal">
-                  <InputLabel>Asesor</InputLabel>
-                  <Select
-                    label="Asesor"
-                    defaultValue=""
-                    {...register('asesor')}
-                  >
-                    <MenuItem value="">Sin Asignar</MenuItem>
-                    {asesores.map((asesor) => (
-                      <MenuItem key={asesor.id} value={asesor.id}>
-                        {asesor.username} ({asesor.first_name} {asesor.last_name})
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
+                <Autocomplete
+                  fullWidth
+                  options={asesorOptions}
+                  getOptionLabel={(option) => option.username ? `${option.username} (${option.first_name || ''} ${option.last_name || ''})` : ''}
+                  loading={asesorLoading}
+                  value={asesorOptions.find(opt => opt.id === Number(watch('asesor'))) || null}
+                  onChange={(_, newValue) => setValue('asesor', newValue ? newValue.id : '')}
+                  onInputChange={(_, newInput) => setAsesorInput(newInput)}
+                  renderInput={(params) => (
+                    <TextField
+                      {...params}
+                      label="Asesor"
+                      margin="normal"
+                      InputLabelProps={{ shrink: true }}
+                    />
+                  )}
+                />
               </Grid>
 
               {/* CAMPOS OPC (visibles siempre, pero algunos readOnly/disabled condicionalmente) */}
               <Grid item xs={12} sm={6}>
-                <FormControl fullWidth margin="normal">
-                  <InputLabel>Personal OPC Captador</InputLabel>
-                  <Select
-                    label="Personal OPC Captador"
-                    value={watch('personal_opc_captador') || ''}
-                    {...register('personal_opc_captador', { required: isOPCContext || shouldEnableOpcFields })}
-                    disabled={isOpcLeadAlreadyAssigned || !shouldEnableOpcFields}
-                  >
-                    <MenuItem value="">Sin asignar OPC</MenuItem>
-                    {opcPersonnelList.map((opc) => (
-                      <MenuItem key={opc.id} value={opc.id}>
-                        {opc.nombre}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                  {errors.personal_opc_captador && <Typography color="error" variant="caption">{errors.personal_opc_captador.message}</Typography>}
-                </FormControl>
+                <Autocomplete
+                  fullWidth
+                  options={opcOptions}
+                  getOptionLabel={(option) => option.nombre || ''}
+                  loading={opcLoading}
+                  value={opcOptions.find(opt => opt.id === Number(watch('personal_opc_captador'))) || null}
+                  onChange={(_, newValue) => setValue('personal_opc_captador', newValue ? newValue.id : '')}
+                  onInputChange={(_, newInput) => setOpcInput(newInput)}
+                  disabled={isOpcLeadAlreadyAssigned || !shouldEnableOpcFields}
+                  renderInput={(params) => (
+                    <TextField
+                      {...params}
+                      label="Personal OPC Captador"
+                      margin="normal"
+                      error={!!errors.personal_opc_captador}
+                      helperText={errors.personal_opc_captador?.message}
+                      InputLabelProps={{ shrink: true }}
+                    />
+                  )}
+                />
               </Grid>
               <Grid item xs={12} sm={6}>
-                <FormControl fullWidth margin="normal" disabled={true}>
-                  <InputLabel>Supervisor OPC Captador</InputLabel>
-                  <Select
-                    label="Supervisor OPC Captador"
-                    value={watchedPersonalOpcCaptadorId ? (
-                        opcPersonnelList.find(p => p.id === Number(watchedPersonalOpcCaptadorId))?.supervisor || ''
-                    ) : ''}
-                    {...register('supervisor_opc_captador')}
-                  >
-                    <MenuItem value="">Sin Supervisor</MenuItem>
-                    {opcSupervisorsList.map((sup) => (
-                      <MenuItem key={sup.id} value={sup.id}>
-                        {sup.nombre}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
+                <Autocomplete
+                  fullWidth
+                  options={supervisorOpcOptions}
+                  getOptionLabel={(option) => option.nombre || ''}
+                  loading={supervisorOpcLoading}
+                  value={supervisorOpcOptions.find(opt => opt.id === Number(watch('supervisor_opc_captador'))) || null}
+                  onChange={(_, newValue) => setValue('supervisor_opc_captador', newValue ? newValue.id : '')}
+                  onInputChange={(_, newInput) => setSupervisorOpcInput(newInput)}
+                  disabled={true}
+                  renderInput={(params) => (
+                    <TextField
+                      {...params}
+                      label="Supervisor OPC Captador"
+                      margin="normal"
+                      InputLabelProps={{ shrink: true }}
+                    />
+                  )}
+                />
               </Grid>
               <Grid item xs={12} sm={6}>
                 <TextField
@@ -441,7 +549,6 @@ function LeadFormModal({ open, onClose, leadId, onSaveSuccess, isOPCContext = fa
                   readOnly={isOpcLeadAlreadyAssigned || !shouldEnableOpcFields}
                   disabled={isOpcLeadAlreadyAssigned || !shouldEnableOpcFields}
                 />
-                {errors.fecha_captacion && <Typography color="error" variant="caption">{errors.fecha_captacion.message}</Typography>}
               </Grid>
               <Grid item xs={12} sm={6}>
                 <FormControl fullWidth margin="normal" error={!!errors.calle_o_modulo}>
@@ -451,6 +558,7 @@ function LeadFormModal({ open, onClose, leadId, onSaveSuccess, isOPCContext = fa
                     value={watch('calle_o_modulo') || ''}
                     {...register('calle_o_modulo', { required: isOPCContext || shouldEnableOpcFields })}
                     disabled={isOpcLeadAlreadyAssigned || !shouldEnableOpcFields}
+                    InputLabelProps={{ shrink: true }}
                   >
                     {CALLE_MODULO_CHOICES.map((option) => (
                       <MenuItem key={option.value} value={option.value}>
@@ -472,6 +580,7 @@ function LeadFormModal({ open, onClose, leadId, onSaveSuccess, isOPCContext = fa
                   multiline
                   rows={3}
                   {...register('observacion')}
+                  InputLabelProps={{ shrink: true }}
                 />
               </Grid>
               <Grid item xs={12} sm={6}>
@@ -483,6 +592,7 @@ function LeadFormModal({ open, onClose, leadId, onSaveSuccess, isOPCContext = fa
                   multiline
                   rows={2}
                   {...register('observacion_opc')}
+                  InputLabelProps={{ shrink: true }}
                 />
               </Grid>
             </Grid>

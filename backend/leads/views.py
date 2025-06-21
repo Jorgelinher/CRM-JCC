@@ -1,6 +1,6 @@
 # backend/leads/views.py
 
-from rest_framework import viewsets, status
+from rest_framework import viewsets, status, mixins
 from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
@@ -16,8 +16,9 @@ from django.db.models import Count, Q
 from django.utils import timezone
 import datetime
 
-from .models import Lead, User, Action, Appointment, OPCPersonnel
+from .models import Lead, User, Action, Appointment, OPCPersonnel, LeadDuplicate
 from . import serializers
+from .serializers import LeadDuplicateSerializer
 
 
 class StandardResultsSetPagination(PageNumberPagination):
@@ -32,31 +33,35 @@ class LeadFilter(FilterSet):
     fecha_captacion = DateFromToRangeFilter()
 
     is_opc_lead = django_filters.BooleanFilter(method='filter_is_opc_lead')
+    asesor = django_filters.CharFilter(method='filter_asesor')
 
     class Meta:
         model = Lead
         fields = {
-            'asesor': ['exact'],
             'ubicacion': ['exact', 'icontains'],
             'proyecto_interes': ['exact'],
             'medio': ['exact'],
             'distrito': ['exact', 'icontains'],
             'tipificacion': ['exact'],
-            # Estos están definidos directamente en la clase, no deben estar aquí
-            # 'fecha_creacion': ['gte', 'lte'],
-            # 'ultima_actualizacion': ['gte', 'lte'],
             'personal_opc_captador': ['exact'],
             'supervisor_opc_captador': ['exact'],
-            # Este también, no debe estar aquí
-            # 'fecha_captacion': ['gte', 'lte'],
             'calle_o_modulo': ['exact'],
         }
 
     def filter_is_opc_lead(self, queryset, name, value):
         if value is True:
-            return queryset.filter(personal_opc_captador__isnull=False)
+            # Usar el nuevo campo es_lead_opc para mayor precisión
+            return queryset.filter(es_lead_opc=True)
         elif value is False:
-            return queryset.filter(personal_opc_captador__isnull=True)
+            # Mostrar leads que NO son OPC
+            return queryset.filter(es_lead_opc=False)
+        return queryset
+
+    def filter_asesor(self, queryset, name, value):
+        if value == 'null':
+            return queryset.filter(asesor__isnull=True)
+        elif value:
+            return queryset.filter(asesor=value)
         return queryset
 
 
@@ -93,6 +98,7 @@ class LeadViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['post'])
     def upload_csv(self, request):
+        import csv, io
         if 'csv_file' not in request.FILES:
             return Response({'error': 'No se proporcionó ningún archivo CSV.'}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -110,8 +116,9 @@ class LeadViewSet(viewsets.ModelViewSet):
 
         leads_creados = 0
         leads_actualizados = 0
+        duplicados = 0
         errores = []
-
+        duplicados_guardados = 0
         asesor_index = 0
 
         with transaction.atomic():
@@ -122,14 +129,14 @@ class LeadViewSet(viewsets.ModelViewSet):
             io_string.seek(0)
             reader = csv.DictReader(io_string)
 
-
             for row_num, row in enumerate(reader, start=1):
                 try:
                     clean_row = {k.strip().lower().replace(' ', '_'): v.strip() for k, v in row.items()}
 
                     nombre = clean_row.get('nombre')
                     celular = clean_row.get('celular')
-                    ubicacion = clean_row.get('proyecto')
+                    email = clean_row.get('email')
+                    ubicacion = clean_row.get('proyecto') or clean_row.get('ubicacion')
                     medio = clean_row.get('medio')
                     distrito = clean_row.get('distrito')
                     tipificacion = clean_row.get('tipificacion', '')
@@ -137,13 +144,42 @@ class LeadViewSet(viewsets.ModelViewSet):
                     observacion_opc = clean_row.get('observacion_opc')
                     proyecto_interes = clean_row.get('proyecto_interes')
                     calle_o_modulo = clean_row.get('calle_o_modulo')
-
+                    fecha_interaccion = clean_row.get('fecha_interaccion')
 
                     current_asesor = asesores_activos[asesor_index]
                     asesor_index = (asesor_index + 1) % len(asesores_activos)
 
                     if not celular or not nombre or not ubicacion:
                         errores.append(f"Fila {row_num}: Celular, Nombre o Ubicación faltantes.")
+                        continue
+
+                    # Detección de duplicados avanzada
+                    lead_qs = Lead.objects.filter(celular=celular)
+                    if not lead_qs.exists() and email:
+                        lead_qs = Lead.objects.filter(email=email)
+                    if not lead_qs.exists():
+                        lead_qs = Lead.objects.filter(nombre__iexact=nombre, celular=celular)
+
+                    if lead_qs.exists():
+                        # Guardar como duplicado
+                        LeadDuplicate.objects.create(
+                            original_lead=lead_qs.first(),
+                            nombre=nombre,
+                            celular=celular,
+                            email=email,
+                            asesor=current_asesor,
+                            captador=None,
+                            fecha_interaccion=fecha_interaccion or None,
+                            observacion=observacion,
+                            observacion_opc=observacion_opc,
+                            proyecto_interes=proyecto_interes,
+                            ubicacion=ubicacion,
+                            medio=medio,
+                            distrito=distrito,
+                            tipificacion=tipificacion,
+                            calle_o_modulo=calle_o_modulo,
+                        )
+                        duplicados += 1
                         continue
 
                     lead_obj, created = Lead.objects.update_or_create(
@@ -169,13 +205,46 @@ class LeadViewSet(viewsets.ModelViewSet):
                 except Exception as e:
                     errores.append(f"Fila {row_num}: Error al procesar '{row.get('nombre', 'N/A')}' - {e}")
 
+            duplicados_guardados = LeadDuplicate.objects.filter(estado='pendiente').count()
             return Response({
                 'message': 'Proceso de carga de CSV completado.',
                 'leads_creados': leads_creados,
                 'leads_actualizados': leads_actualizados,
+                'duplicados_detectados': duplicados,
+                'duplicados_guardados': duplicados_guardados,
                 'errores': errores,
                 'total_filas_procesadas': total_filas_en_csv,
             }, status=status.HTTP_200_OK if not errores else status.HTTP_206_PARTIAL_CONTENT)
+
+    @action(detail=False, methods=['post'], url_path='reasignar')
+    def reasignar(self, request):
+        ids = request.data.get('lead_ids', [])
+        nuevo_asesor_id = request.data.get('nuevo_asesor_id')
+        nuevo_captador_id = request.data.get('nuevo_captador_id')
+        if not ids or (not nuevo_asesor_id and not nuevo_captador_id):
+            return Response({'error': 'Debes proporcionar los IDs de los leads y el nuevo asesor o captador.'}, status=400)
+        updated = 0
+        from .models import Action, User, OPCPersonnel
+        nuevo_asesor = User.objects.filter(id=nuevo_asesor_id).first() if nuevo_asesor_id else None
+        nuevo_captador = OPCPersonnel.objects.filter(id=nuevo_captador_id).first() if nuevo_captador_id else None
+        for lead in Lead.objects.filter(id__in=ids):
+            cambios = []
+            if nuevo_asesor and lead.asesor != nuevo_asesor:
+                lead.asesor = nuevo_asesor
+                cambios.append(f'asesor a {nuevo_asesor.username}')
+            if nuevo_captador and lead.personal_opc_captador != nuevo_captador:
+                lead.personal_opc_captador = nuevo_captador
+                cambios.append(f'captador a {nuevo_captador.nombre}')
+            if cambios:
+                lead.save()
+                Action.objects.create(
+                    lead=lead,
+                    user=request.user,
+                    tipo_accion='Reasignación masiva',
+                    detalle_accion=f'Lead reasignado: {", ".join(cambios)}.'
+                )
+                updated += 1
+        return Response({'message': f'{updated} leads reasignados correctamente.'})
 
 
 class UserViewSet(viewsets.ReadOnlyModelViewSet):
@@ -328,6 +397,96 @@ class OPCPersonnelViewSet(viewsets.ModelViewSet):
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
+def opc_leads_metrics(request):
+    """Obtiene métricas específicas para leads OPC"""
+    from django.db.models import Count, Q
+    from datetime import datetime, timedelta
+    
+    # Parámetros de filtro
+    fecha_desde = request.GET.get('fecha_desde')
+    fecha_hasta = request.GET.get('fecha_hasta')
+    personal_opc_id = request.GET.get('personal_opc_id')
+    supervisor_opc_id = request.GET.get('supervisor_opc_id')
+    
+    # Query base para leads OPC
+    queryset = Lead.objects.filter(es_lead_opc=True)
+    
+    # Aplicar filtros de fecha
+    if fecha_desde:
+        queryset = queryset.filter(fecha_captacion__gte=fecha_desde)
+    if fecha_hasta:
+        queryset = queryset.filter(fecha_captacion__lte=fecha_hasta)
+    
+    # Aplicar filtros de personal OPC
+    if personal_opc_id:
+        queryset = queryset.filter(personal_opc_captador_id=personal_opc_id)
+    if supervisor_opc_id:
+        queryset = queryset.filter(supervisor_opc_captador_id=supervisor_opc_id)
+    
+    # Métricas básicas
+    total_leads_opc = queryset.count()
+    leads_asignados = queryset.filter(asesor__isnull=False).count()
+    leads_sin_asignar = queryset.filter(asesor__isnull=True).count()
+    
+    # Tipificaciones por asesor
+    tipificaciones_por_asesor = queryset.filter(
+        asesor__isnull=False
+    ).values(
+        'asesor__username', 'asesor__first_name', 'asesor__last_name'
+    ).annotate(
+        total_leads=Count('id'),
+        citas_confirmadas=Count('id', filter=Q(tipificacion__in=[
+            'CITA - SALA', 'CITA - PROYECTO', 'CITA - HxH', 'CITA - ZOOM', 
+            'CITA - POR CONFIRMAR', 'CITA - CONFIRMADA', 'YA ASISTIO'
+        ])),
+        seguimiento=Count('id', filter=Q(tipificacion='SEGUIMIENTO')),
+        no_interesado=Count('id', filter=Q(tipificacion__icontains='NO INTERESADO')),
+        no_contesta=Count('id', filter=Q(tipificacion='NO CONTESTA')),
+    ).order_by('-total_leads')
+    
+    # Rendimiento por personal OPC
+    rendimiento_personal_opc = queryset.values(
+        'personal_opc_captador__nombre', 'personal_opc_captador__rol'
+    ).annotate(
+        total_captados=Count('id'),
+        asignados=Count('id', filter=Q(asesor__isnull=False)),
+        con_citas=Count('id', filter=Q(tipificacion__in=[
+            'CITA - SALA', 'CITA - PROYECTO', 'CITA - HxH', 'CITA - ZOOM', 
+            'CITA - POR CONFIRMAR', 'CITA - CONFIRMADA', 'YA ASISTIO'
+        ])),
+    ).order_by('-total_captados')
+    
+    # Distribución por proyecto de interés
+    distribucion_proyectos = queryset.values('proyecto_interes').annotate(
+        total=Count('id')
+    ).order_by('-total')
+    
+    # Distribución por medio de captación
+    distribucion_medios = queryset.values('medio').annotate(
+        total=Count('id')
+    ).order_by('-total')
+    
+    # Leads de los últimos 30 días
+    fecha_30_dias_atras = datetime.now().date() - timedelta(days=30)
+    leads_ultimos_30_dias = queryset.filter(
+        fecha_captacion__gte=fecha_30_dias_atras
+    ).count()
+    
+    return Response({
+        'total_leads_opc': total_leads_opc,
+        'leads_asignados': leads_asignados,
+        'leads_sin_asignar': leads_sin_asignar,
+        'porcentaje_asignacion': (leads_asignados / total_leads_opc * 100) if total_leads_opc > 0 else 0,
+        'leads_ultimos_30_dias': leads_ultimos_30_dias,
+        'tipificaciones_por_asesor': list(tipificaciones_por_asesor),
+        'rendimiento_personal_opc': list(rendimiento_personal_opc),
+        'distribucion_proyectos': list(distribucion_proyectos),
+        'distribucion_medios': list(distribucion_medios),
+    })
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
 def dashboard_metrics(request):
     """
     Endpoint para obtener métricas y datos para el panel de control.
@@ -451,3 +610,36 @@ def dashboard_metrics(request):
     }
 
     return Response(response_data)
+
+class LeadDuplicateViewSet(viewsets.ModelViewSet):
+    queryset = LeadDuplicate.objects.all().select_related('original_lead', 'asesor', 'captador')
+    serializer_class = LeadDuplicateSerializer
+    permission_classes = [IsAuthenticated]
+    filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
+    search_fields = ['nombre', 'celular', 'email', 'estado', 'asesor__username', 'captador__nombre']
+    ordering_fields = ['fecha_importacion', 'nombre', 'celular', 'estado']
+    pagination_class = StandardResultsSetPagination
+
+    @action(detail=True, methods=['post'])
+    def fusionar(self, request, pk=None):
+        duplicado = self.get_object()
+        lead = duplicado.original_lead
+        if not lead:
+            return Response({'error': 'No hay lead original para fusionar.'}, status=400)
+        # Lógica de fusión: actualiza campos del lead original con los del duplicado si están vacíos
+        campos = ['nombre', 'celular', 'email', 'asesor', 'captador', 'fecha_interaccion', 'observacion', 'observacion_opc', 'proyecto_interes', 'ubicacion', 'medio', 'distrito', 'tipificacion', 'calle_o_modulo']
+        for campo in campos:
+            valor_duplicado = getattr(duplicado, campo, None)
+            if valor_duplicado and not getattr(lead, campo, None):
+                setattr(lead, campo, valor_duplicado)
+        lead.save()
+        duplicado.estado = 'fusionado'
+        duplicado.save()
+        return Response({'message': 'Lead fusionado correctamente.'})
+
+    @action(detail=True, methods=['post'])
+    def ignorar(self, request, pk=None):
+        duplicado = self.get_object()
+        duplicado.estado = 'ignorado'
+        duplicado.save()
+        return Response({'message': 'Duplicado marcado como ignorado.'})

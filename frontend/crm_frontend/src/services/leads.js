@@ -92,6 +92,50 @@ const leadsService = {
       throw error;
     }
   },
+
+  // Obtener duplicados de leads
+  getLeadDuplicates: async (params) => {
+    try {
+      const response = await apiClient.get('/lead-duplicates/', { params });
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching lead duplicates:', error);
+      throw error;
+    }
+  },
+
+  // Fusionar un duplicado
+  fusionarLeadDuplicate: async (id) => {
+    try {
+      const response = await apiClient.post(`/lead-duplicates/${id}/fusionar/`);
+      return response.data;
+    } catch (error) {
+      console.error('Error merging lead duplicate:', error);
+      throw error;
+    }
+  },
+
+  // Ignorar un duplicado
+  ignorarLeadDuplicate: async (id) => {
+    try {
+      const response = await apiClient.post(`/lead-duplicates/${id}/ignorar/`);
+      return response.data;
+    } catch (error) {
+      console.error('Error ignoring lead duplicate:', error);
+      throw error;
+    }
+  },
+
+  // Reasignar leads masivamente
+  reassignLeads: async (payload) => {
+    try {
+      const response = await apiClient.post('/leads/reasignar/', payload);
+      return response.data;
+    } catch (error) {
+      console.error('Error reassigning leads:', error);
+      throw error;
+    }
+  },
 };
 
 
