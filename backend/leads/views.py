@@ -19,6 +19,7 @@ import datetime
 from .models import Lead, User, Action, Appointment, OPCPersonnel, LeadDuplicate
 from . import serializers
 from .serializers import LeadDuplicateSerializer
+from leads.models import User
 
 
 class StandardResultsSetPagination(PageNumberPagination):
@@ -83,10 +84,46 @@ class LeadViewSet(viewsets.ModelViewSet):
 
     pagination_class = StandardResultsSetPagination
 
+    def get_queryset(self):
+        qs = super().get_queryset()
+        # Si la vista es para gestión de leads (operadores), excluir directeo
+        if self.request.query_params.get('context') == 'gestion':
+            qs = qs.filter(es_directeo=False)
+        # Si la vista es para Leads OPC, solo mostrar directeo
+        if self.request.query_params.get('context') == 'opc':
+            qs = qs.filter(es_directeo=True)
+        return qs
+
     def perform_create(self, serializer):
+        data = self.request.data
+        es_directeo = data.get('es_directeo', False)
+        personal_opc_captador_id = data.get('personal_opc_captador') or data.get('personal_opc_captador_id')
+        # Si es directeo, asignar el operador como el usuario del OPC captador
+        if es_directeo and personal_opc_captador_id:
+            from leads.models import OPCPersonnel
+            try:
+                opc = OPCPersonnel.objects.get(id=personal_opc_captador_id)
+                if opc.user:
+                    serializer.save(asesor=opc.user)
+                    return
+            except Exception:
+                pass
         serializer.save()
 
     def perform_update(self, serializer):
+        data = self.request.data
+        es_directeo = data.get('es_directeo', False)
+        personal_opc_captador_id = data.get('personal_opc_captador') or data.get('personal_opc_captador_id')
+        # Si es directeo, asignar el operador como el usuario del OPC captador
+        if es_directeo and personal_opc_captador_id:
+            from leads.models import OPCPersonnel
+            try:
+                opc = OPCPersonnel.objects.get(id=personal_opc_captador_id)
+                if opc.user:
+                    serializer.save(asesor=opc.user)
+                    return
+            except Exception:
+                pass
         serializer.save()
 
     @action(detail=True, methods=['get'])
@@ -246,11 +283,27 @@ class LeadViewSet(viewsets.ModelViewSet):
                 updated += 1
         return Response({'message': f'{updated} leads reasignados correctamente.'})
 
+    def destroy(self, request, *args, **kwargs):
+        lead = self.get_object()
+        # Eliminar citas asociadas
+        lead.appointments.all().delete()
+        # Eliminar acciones asociadas
+        lead.actions.all().delete()
+        # Eliminar duplicados asociados
+        lead.duplicates.all().delete()
+        lead_id = lead.id
+        super().destroy(request, *args, **kwargs)
+        return Response({'detail': f'Lead {lead_id} y todas sus citas, acciones y duplicados asociados han sido eliminados en cascada.'}, status=status.HTTP_200_OK)
+
 
 class UserViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = User.objects.all().order_by('username')
     serializer_class = serializers.UserSerializer
     permission_classes = [IsAuthenticated]
+    filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
+    search_fields = ['username', 'first_name', 'last_name', 'email']
+    ordering_fields = ['username', 'first_name', 'last_name', 'email', 'rol']
+    filterset_fields = ['rol']
 
 class AppointmentFilter(FilterSet):
     class Meta:
@@ -494,13 +547,18 @@ def dashboard_metrics(request):
     - asesor_id (opcional): ID del asesor para filtrar.
     - fecha_desde (opcional): Fecha de inicio para el filtro (YYYY-MM-DD).
     - fecha_hasta (opcional): Fecha de fin para el filtro (YYYY-MM-DD).
+    - context (opcional): Si es 'gestion', excluir directeos.
     """
     asesor_id = request.query_params.get('asesor_id')
     fecha_desde_str = request.query_params.get('fecha_desde')
     fecha_hasta_str = request.query_params.get('fecha_hasta')
+    context = request.query_params.get('context')
 
     leads_queryset = Lead.objects.all()
     appointments_queryset = Appointment.objects.all()
+
+    if context == 'gestion':
+        leads_queryset = leads_queryset.filter(es_directeo=False)
 
     if fecha_desde_str:
         try:
@@ -536,9 +594,13 @@ def dashboard_metrics(request):
 
     # --- Métricas Clave ---
     total_leads_asignados = leads_queryset.count()
+    leads_gestionados = leads_queryset.exclude(tipificacion__isnull=True).exclude(tipificacion__exact='').count()
     citas_confirmadas = appointments_queryset.filter(has_ever_been_confirmed=True).count()
     presencias = appointments_queryset.filter(estado='Realizada').count()
 
+    # Tasa de conversión a citas: citas confirmadas / leads gestionados
+    tasa_conversion_citas = (citas_confirmadas / leads_gestionados * 100) if leads_gestionados > 0 else 0
+    # Tasa de conversión a presencias (como estaba antes)
     tasa_conversion_global = (presencias / citas_confirmadas * 100) if citas_confirmadas > 0 else 0
 
     # --- Rendimiento por Asesor (Tabla) ---
@@ -599,8 +661,10 @@ def dashboard_metrics(request):
     response_data = {
         'metricas_generales': {
             'total_leads_asignados': total_leads_asignados,
+            'leads_gestionados': leads_gestionados,
             'citas_confirmadas_global': citas_confirmadas,
             'presencias_global': presencias,
+            'tasa_conversion_citas': round(tasa_conversion_citas, 2),
             'tasa_conversion_global': round(tasa_conversion_global, 2),
         },
         'rendimiento_asesores': asesores_data,

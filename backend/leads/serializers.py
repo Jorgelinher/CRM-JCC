@@ -10,7 +10,7 @@ class UserSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ['id', 'username', 'first_name', 'last_name', 'email', 'opc_profile_id']
+        fields = ['id', 'username', 'first_name', 'last_name', 'email', 'opc_profile_id', 'rol']
         read_only_fields = ['username', 'first_name', 'last_name', 'email', 'opc_profile_id']
 
     def get_opc_profile_id(self, obj):
@@ -104,6 +104,7 @@ class LeadSerializer(serializers.ModelSerializer):
             'fecha_captacion',
             'calle_o_modulo', # Campo con choices
             'es_lead_opc', # NUEVO CAMPO: Para rastrear leads OPC
+            'es_directeo',
         ]
 
     def to_representation(self, instance):

@@ -136,6 +136,38 @@ const leadsService = {
       throw error;
     }
   },
+
+  // Obtener operadores (usuarios con rol operador)
+  getOperators: async (params) => {
+    try {
+      const response = await apiClient.get('/users/', { params: { ...params, rol: 'OPERADOR' } });
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching operators:', error);
+      throw error;
+    }
+  },
+
+  // Obtener asesores presenciales (usuarios con rol asesor presencial)
+  getPresentialAdvisors: async (params) => {
+    try {
+      const response = await apiClient.get('/users/', { params: { ...params, rol: 'ASESOR_PRESENCIAL' } });
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching presential advisors:', error);
+      throw error;
+    }
+  },
+
+  // Obtener leads para gestión de leads (excluye directeo)
+  getLeadsGestion: async (params) => {
+    return leadsService.getLeads({ ...params, context: 'gestion' });
+  },
+
+  // Obtener leads para Leads OPC (solo directeo)
+  getLeadsOPC: async (params) => {
+    return leadsService.getLeads({ ...params, context: 'opc' });
+  },
 };
 
 

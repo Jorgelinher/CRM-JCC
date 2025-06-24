@@ -156,48 +156,48 @@ function DashboardPage() {
         <Grid container spacing={3}>
           {/* Métricas en tarjetas */}
           <Grid item xs={12} sm={6} md={3}>
-            <Card elevation={2} sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+            <Card elevation={2} sx={{ height: '100%', display: 'flex', flexDirection: 'column', backgroundColor: '#1A3578', color: 'white' }}>
               <CardContent sx={{ flexGrow: 1 }}>
-                <Typography color="text.secondary" gutterBottom>
+                <Typography sx={{ color: 'white', fontWeight: 'bold' }} gutterBottom>
                   Leads Asignados
                 </Typography>
-                <Typography variant="h5" component="div">
+                <Typography variant="h5" component="div" sx={{ color: 'white', fontWeight: 'bold' }}>
                   {metrics.metricas_generales.total_leads_asignados}
                 </Typography>
               </CardContent>
             </Card>
           </Grid>
           <Grid item xs={12} sm={6} md={3}>
-            <Card elevation={2} sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+            <Card elevation={2} sx={{ height: '100%', display: 'flex', flexDirection: 'column', backgroundColor: '#388e3c', color: 'white' }}>
               <CardContent sx={{ flexGrow: 1 }}>
-                <Typography color="text.secondary" gutterBottom>
+                <Typography sx={{ color: 'white', fontWeight: 'bold' }} gutterBottom>
                   Citas Confirmadas
                 </Typography>
-                <Typography variant="h5" component="div">
+                <Typography variant="h5" component="div" sx={{ color: 'white', fontWeight: 'bold' }}>
                   {metrics.metricas_generales.citas_confirmadas_global}
                 </Typography>
               </CardContent>
             </Card>
           </Grid>
           <Grid item xs={12} sm={6} md={3}>
-            <Card elevation={2} sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+            <Card elevation={2} sx={{ height: '100%', display: 'flex', flexDirection: 'column', backgroundColor: '#1976d2', color: 'white' }}>
               <CardContent sx={{ flexGrow: 1 }}>
-                <Typography color="text.secondary" gutterBottom>
+                <Typography sx={{ color: 'white', fontWeight: 'bold' }} gutterBottom>
                   Presencias
                 </Typography>
-                <Typography variant="h5" component="div">
+                <Typography variant="h5" component="div" sx={{ color: 'white', fontWeight: 'bold' }}>
                   {metrics.metricas_generales.presencias_global}
                 </Typography>
               </CardContent>
             </Card>
           </Grid>
           <Grid item xs={12} sm={6} md={3}>
-            <Card elevation={2} sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+            <Card elevation={2} sx={{ height: '100%', display: 'flex', flexDirection: 'column', backgroundColor: '#757575', color: 'white' }}>
               <CardContent sx={{ flexGrow: 1 }}>
-                <Typography color="text.secondary" gutterBottom>
-                  Tasa de Conversión
+                <Typography sx={{ color: 'white', fontWeight: 'bold' }} gutterBottom>
+                  Tasa de Efectividad Presencias
                 </Typography>
-                <Typography variant="h5" component="div">
+                <Typography variant="h5" component="div" sx={{ color: 'white', fontWeight: 'bold' }}>
                   {metrics.metricas_generales.tasa_conversion_global}%
                 </Typography>
               </CardContent>
@@ -261,12 +261,12 @@ function DashboardPage() {
               <TableContainer>
                 <Table size="small">
                   <TableHead>
-                    <TableRow>
-                      <TableCell>Asesor</TableCell>
-                      <TableCell align="right">Leads Asignados</TableCell>
-                      <TableCell align="right">Citas Confirmadas</TableCell>
-                      <TableCell align="right">Presencias</TableCell>
-                      <TableCell align="right">Tasa de Conversión (%)</TableCell>
+                    <TableRow sx={{ backgroundColor: '#1A3578' }}>
+                      <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Asesor</TableCell>
+                      <TableCell align="right" sx={{ color: 'white', fontWeight: 'bold' }}>Leads Asignados</TableCell>
+                      <TableCell align="right" sx={{ color: 'white', fontWeight: 'bold' }}>Citas Confirmadas</TableCell>
+                      <TableCell align="right" sx={{ color: 'white', fontWeight: 'bold' }}>Presencias</TableCell>
+                      <TableCell align="right" sx={{ color: 'white', fontWeight: 'bold' }}>Tasa de Efectividad Presencias (%)</TableCell>
                     </TableRow>
                   </TableHead>
                   <TableBody>

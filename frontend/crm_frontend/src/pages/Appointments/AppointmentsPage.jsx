@@ -15,7 +15,7 @@ import {
   Select,
   IconButton,
   InputAdornment,
-  Paper, TableContainer, Table, TableHead, TableRow, TableCell, TableBody, TablePagination, Tooltip
+  Paper, TableContainer, Table, TableHead, TableRow, TableCell, TableBody, TablePagination, Tooltip, Chip
 } from '@mui/material';
 import {
     Add as AddIcon,
@@ -290,34 +290,54 @@ function AppointmentsPage() {
               <TableContainer>
                 <Table>
                   <TableHead>
-                    <TableRow>
-                      <TableCell>Lead</TableCell>
-                      <TableCell>Celular Lead</TableCell>
-                      <TableCell>Medio de Captación</TableCell>{/* NUEVO: Columna Medio de Captación */}
-                      <TableCell>Fecha y Hora</TableCell>
-                      <TableCell>Lugar</TableCell>
-                      <TableCell>Estado</TableCell>
-                      <TableCell>Asesor Comercial</TableCell>
-                      <TableCell>Asesor Presencial</TableCell>
-                      <TableCell align="right">Acciones</TableCell>
+                    <TableRow sx={{ backgroundColor: '#1A3578' }}>
+                      <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Lead</TableCell>
+                      <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Celular Lead</TableCell>
+                      <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Medio de Captación</TableCell>
+                      <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Fecha y Hora</TableCell>
+                      <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Lugar</TableCell>
+                      <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Estado</TableCell>
+                      <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Asesor Comercial</TableCell>
+                      <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Asesor Presencial</TableCell>
+                      <TableCell align="right" sx={{ color: 'white', fontWeight: 'bold' }}>Acciones</TableCell>
                     </TableRow>
                   </TableHead>
                   <TableBody>
                     {appointments.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={9} align="center"> {/* Ajustar colSpan si se añade columna */}
+                        <TableCell colSpan={9} align="center">
                           No se encontraron citas.
                         </TableCell>
                       </TableRow>
                     ) : (
                       appointments.map((appointment) => (
-                        <TableRow key={appointment.id}>
+                        <TableRow key={appointment.id} hover>
                           <TableCell>{appointment.lead ? appointment.lead.nombre : 'N/A'}</TableCell>
                           <TableCell>{appointment.lead ? appointment.lead.celular : 'N/A'}</TableCell>
-                          <TableCell>{appointment.lead ? appointment.lead.medio || 'N/A' : 'N/A'}</TableCell>{/* NUEVO: Mostrar Medio de Captación */}
+                          <TableCell>{appointment.lead ? appointment.lead.medio || 'N/A' : 'N/A'}</TableCell>
                           <TableCell>{new Date(appointment.fecha_hora).toLocaleString()}</TableCell>
                           <TableCell>{appointment.lugar}</TableCell>
-                          <TableCell>{appointment.estado}</TableCell>
+                          <TableCell>
+                            <Chip
+                              label={appointment.estado}
+                              size="small"
+                              color={
+                                appointment.estado === 'Confirmada' ? 'success' :
+                                appointment.estado === 'Pendiente' ? 'warning' :
+                                appointment.estado === 'Cancelada' ? 'error' :
+                                appointment.estado === 'Realizada' ? 'primary' :
+                                'default'
+                              }
+                              variant="filled"
+                              sx={{ fontWeight: 'bold', color: 'white', backgroundColor:
+                                appointment.estado === 'Confirmada' ? '#388e3c' :
+                                appointment.estado === 'Pendiente' ? '#fbc02d' :
+                                appointment.estado === 'Cancelada' ? '#d32f2f' :
+                                appointment.estado === 'Realizada' ? '#1976d2' :
+                                '#757575'
+                              }}
+                            />
+                          </TableCell>
                           <TableCell>{appointment.asesor_comercial ? appointment.asesor_comercial.username : 'N/A'}</TableCell>
                           <TableCell>{appointment.asesor_presencial ? appointment.asesor_presencial.username : 'N/A'}</TableCell>
                           <TableCell align="right">

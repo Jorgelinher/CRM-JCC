@@ -17,6 +17,8 @@ import {
   DialogActions,
   Grid,
   Autocomplete,
+  Checkbox,
+  FormControlLabel,
 } from '@mui/material';
 import leadsService from '../../services/leads';
 import opcPersonnelService from '../../services/opcPersonnel';
@@ -388,6 +390,13 @@ function LeadFormModal({ open, onClose, leadId, onSaveSuccess, isOPCContext = fa
                   error={!!errors.celular}
                   helperText={errors.celular?.message}
                   InputLabelProps={{ shrink: true }}
+                />
+              </Grid>
+              {/* Checkbox es_directeo */}
+              <Grid item xs={12}>
+                <FormControlLabel
+                  control={<Checkbox {...register('es_directeo')} checked={!!watch('es_directeo')} />}
+                  label="¿Este lead es Directeo? (Captado y gestionado completamente por OPC)"
                 />
               </Grid>
               

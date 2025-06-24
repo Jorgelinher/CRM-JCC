@@ -30,6 +30,7 @@ import {
   Grid,
   Card,
   CardContent,
+  Chip,
 } from '@mui/material';
 import {
   Search as SearchIcon,
@@ -123,7 +124,7 @@ function LeadsPage() {
         ordering: '-fecha_creacion',
       };
 
-      const response = await leadsService.getLeads(params);
+      const response = await leadsService.getLeadsGestion(params);
       console.log('fetchLeads: Datos de leads recibidos (paginados):', response);
 
       setLeads(response.results || []);
@@ -146,6 +147,7 @@ function LeadsPage() {
         asesor_id: filterAsesor || undefined,
         fecha_desde: filterFechaCreacionDesde || undefined,
         fecha_hasta: filterFechaCreacionHasta || undefined,
+        context: 'gestion',
       };
       const data = await metricsService.getDashboardMetrics(params);
       setMetrics(data);
@@ -191,6 +193,7 @@ function LeadsPage() {
 
   const handleLeadSaveSuccess = () => {
     fetchLeads();
+    fetchMetrics();
     handleCloseLeadFormModal();
   };
 
@@ -301,7 +304,7 @@ function LeadsPage() {
 
   return (
     <>
-      <Box sx={{ p: 3 }}>
+      <Box sx={{ p: { xs: 1, sm: 2, md: 3 }, width: '100%', maxWidth: '1400px', margin: '0 auto' }}>
         <Typography variant="h4" gutterBottom>
           Gestión de Leads
         </Typography>
@@ -312,51 +315,51 @@ function LeadsPage() {
               <AssessmentIcon />
               Métricas Generales
             </Typography>
-            <Grid container spacing={3}>
+            <Grid container spacing={3} sx={{ width: '100%', margin: 0 }}>
               <Grid item xs={12} sm={6} md={3}>
-                <Card sx={{ height: '100%', textAlign: 'center' }}>
+                <Card sx={{ height: '100%', textAlign: 'center', backgroundColor: '#1A3578', color: 'white' }}>
                   <CardContent sx={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', height: '100%' }}>
-                    <Typography color="text.secondary" gutterBottom>
+                    <Typography sx={{ color: 'white', fontWeight: 'bold' }} gutterBottom>
                       Total Leads Asignados
                     </Typography>
-                    <Typography variant="h4" component="div" sx={{ fontWeight: 'bold' }}>
-                      {metrics.total_leads_asignados ?? 0}
+                    <Typography variant="h4" component="div" sx={{ fontWeight: 'bold', color: 'white' }}>
+                      {metrics.metricas_generales?.total_leads_asignados ?? 0}
                     </Typography>
                   </CardContent>
                 </Card>
               </Grid>
               <Grid item xs={12} sm={6} md={3}>
-                <Card sx={{ height: '100%', textAlign: 'center' }}>
+                <Card sx={{ height: '100%', textAlign: 'center', backgroundColor: '#388e3c', color: 'white' }}>
                   <CardContent sx={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', height: '100%' }}>
-                    <Typography color="text.secondary" gutterBottom>
+                    <Typography sx={{ color: 'white', fontWeight: 'bold' }} gutterBottom>
+                      Leads Gestionados
+                    </Typography>
+                    <Typography variant="h4" component="div" sx={{ fontWeight: 'bold', color: 'white' }}>
+                      {metrics.metricas_generales?.leads_gestionados ?? 0}
+                    </Typography>
+                  </CardContent>
+                </Card>
+              </Grid>
+              <Grid item xs={12} sm={6} md={3}>
+                <Card sx={{ height: '100%', textAlign: 'center', backgroundColor: '#1976d2', color: 'white' }}>
+                  <CardContent sx={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', height: '100%' }}>
+                    <Typography sx={{ color: 'white', fontWeight: 'bold' }} gutterBottom>
                       Citas Confirmadas
                     </Typography>
-                    <Typography variant="h4" component="div" sx={{ fontWeight: 'bold', color: 'primary.main' }}>
-                      {metrics.citas_confirmadas ?? 0}
+                    <Typography variant="h4" component="div" sx={{ fontWeight: 'bold', color: 'white' }}>
+                      {metrics.metricas_generales?.citas_confirmadas_global ?? 0}
                     </Typography>
                   </CardContent>
                 </Card>
               </Grid>
               <Grid item xs={12} sm={6} md={3}>
-                <Card sx={{ height: '100%', textAlign: 'center' }}>
+                <Card sx={{ height: '100%', textAlign: 'center', backgroundColor: '#757575', color: 'white' }}>
                   <CardContent sx={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', height: '100%' }}>
-                    <Typography color="text.secondary" gutterBottom>
-                      Asistencias (Presencial)
+                    <Typography sx={{ color: 'white', fontWeight: 'bold' }} gutterBottom>
+                      Tasa de Conversión a Citas
                     </Typography>
-                    <Typography variant="h4" component="div" sx={{ fontWeight: 'bold', color: 'success.main' }}>
-                      {metrics.presencias ?? 0}
-                    </Typography>
-                  </CardContent>
-                </Card>
-              </Grid>
-              <Grid item xs={12} sm={6} md={3}>
-                <Card sx={{ height: '100%', textAlign: 'center' }}>
-                  <CardContent sx={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', height: '100%' }}>
-                    <Typography color="text.secondary" gutterBottom>
-                      Tasa de Conversión
-                    </Typography>
-                    <Typography variant="h4" component="div" sx={{ fontWeight: 'bold', color: 'primary.dark' }}>
-                      {`${(metrics.tasa_conversion_global ?? 0).toFixed(1)}%`}
+                    <Typography variant="h4" component="div" sx={{ fontWeight: 'bold', color: 'white' }}>
+                      {`${(metrics.metricas_generales?.tasa_conversion_citas ?? 0).toFixed(1)}%`}
                     </Typography>
                   </CardContent>
                 </Card>
@@ -367,243 +370,274 @@ function LeadsPage() {
           <Box sx={{ display: 'flex', justifyContent: 'center', my: 4 }}><CircularProgress /></Box>
         )}
 
-        <Box sx={{ display: 'flex', gap: 2, mb: 3, flexWrap: 'wrap' }}>
-          <TextField
-            label="Buscar Leads (Nombre, Celular, Ubicación, Distrito)" /* ETIQUETA ACTUALIZADA */
-            variant="outlined"
-            value={searchTerm}
-            onChange={handleSearchChange}
-            sx={{ minWidth: 250 }}
-            InputProps={{
-              endAdornment: (
-                <InputAdornment position="end">
-                  {searchTerm ? (
-                    <IconButton onClick={handleClearSearch} edge="end">
-                      <ClearIcon />
-                    </IconButton>
-                  ) : (
-                    <SearchIcon />
-                  )}
-                </InputAdornment>
-              ),
-            }}
-          />
-          <FormControl variant="outlined" sx={{ minWidth: 200 }}>
-            <InputLabel>Tipificación</InputLabel>
-            <Select
-              value={filterTipificacion}
-              onChange={handleFilterTipificacionChange}
-              label="Tipificación"
-            >
-              {TIPIFICACION_CHOICES.map((option) => (
-                <MenuItem key={option.value} value={option.value}>
-                  {option.label}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-          <FormControl variant="outlined" sx={{ minWidth: 200 }}>
-            <InputLabel>Asesor</InputLabel>
-            <Select
-              value={filterAsesor}
-              onChange={handleFilterAsesorChange}
-              label="Asesor"
-            >
-              <MenuItem value="">Todos los Asesores</MenuItem>
-              {asesores.map((asesor) => (
+        <Paper elevation={2} sx={{ width: '100%', maxWidth: '100%', overflowX: 'auto', boxSizing: 'border-box', mb: 3, p: { xs: 2, md: 3 } }}>
+          <Grid container spacing={2} alignItems="center" justifyContent="flex-start">
+            <Grid item xs={12} sm={6} md={3}>
+              <TextField
+                label="Buscar Leads (Nombre, Celular, Ubicación, Distrito)"
+                variant="outlined"
+                value={searchTerm}
+                onChange={handleSearchChange}
+                fullWidth
+                InputProps={{
+                  endAdornment: (
+                    <InputAdornment position="end">
+                      {searchTerm ? (
+                        <IconButton onClick={handleClearSearch} edge="end">
+                          <ClearIcon />
+                        </IconButton>
+                      ) : (
+                        <SearchIcon />
+                      )}
+                    </InputAdornment>
+                  ),
+                }}
+              />
+            </Grid>
+            <Grid item xs={12} sm={6} md={2}>
+              <FormControl variant="outlined" fullWidth>
+                <InputLabel>Tipificación</InputLabel>
+                <Select
+                  value={filterTipificacion}
+                  onChange={handleFilterTipificacionChange}
+                  label="Tipificación"
+                >
+                  {TIPIFICACION_CHOICES.map((option) => (
+                    <MenuItem key={option.value} value={option.value}>
+                      {option.label}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid item xs={12} sm={6} md={2}>
+              <FormControl variant="outlined" fullWidth>
+                <InputLabel>Asesor</InputLabel>
+                <Select
+                  value={filterAsesor}
+                  onChange={handleFilterAsesorChange}
+                  label="Asesor"
+                >
+                  <MenuItem value="">Todos los Asesores</MenuItem>
+                  {asesores.map((asesor) => (
                     <MenuItem key={asesor.id} value={asesor.id}>
                       {asesor.username}
                     </MenuItem>
                   ))}
                 </Select>
               </FormControl>
+            </Grid>
+            <Grid item xs={12} sm={6} md={2}>
               <TextField
                 label="Fecha Creación Desde"
                 type="date"
                 value={filterFechaCreacionDesde}
                 onChange={handleFilterFechaCreacionDesdeChange}
                 InputLabelProps={{ shrink: true }}
-                sx={{ minWidth: 180 }}
+                fullWidth
               />
+            </Grid>
+            <Grid item xs={12} sm={6} md={2}>
               <TextField
                 label="Fecha Creación Hasta"
                 type="date"
                 value={filterFechaCreacionHasta}
                 onChange={handleFilterFechaCreacionHastaChange}
                 InputLabelProps={{ shrink: true }}
-                sx={{ minWidth: 180 }}
+                fullWidth
               />
+            </Grid>
+            <Grid item xs={12} sm={6} md={1}>
               {(searchTerm || filterTipificacion || filterAsesor || filterFechaCreacionDesde || filterFechaCreacionHasta) && (
                 <Button
                   variant="outlined"
                   color="secondary"
                   startIcon={<ClearAllIcon />}
                   onClick={handleClearAllFilters}
+                  fullWidth
                 >
                   Borrar Filtros
                 </Button>
               )}
+            </Grid>
+            <Grid item xs={12} md={2} sx={{ display: 'flex', justifyContent: { xs: 'flex-start', md: 'flex-end' }, alignItems: 'center', mt: { xs: 2, md: 0 } }}>
               <Button
                 variant="contained"
                 color="primary"
                 startIcon={<AddIcon />}
                 onClick={handleOpenNewLeadModal}
-                sx={{ ml: 'auto' }}
+                fullWidth={true}
               >
                 Nuevo Lead
               </Button>
-            </Box>
+            </Grid>
+          </Grid>
+        </Paper>
 
-            {loading && <CircularProgress sx={{ display: 'block', margin: 'auto' }} />}
-            {error && <Alert severity="error">{error}</Alert>}
+        {loading && <CircularProgress sx={{ display: 'block', margin: 'auto' }} />}
+        {error && <Alert severity="error">{error}</Alert>}
 
-            {!loading && !error && leads.length === 0 && (
-              <Typography variant="body1" align="center" sx={{ mt: 3 }}>
-                No se encontraron leads.
-              </Typography>
-            )}
-
-            {!loading && !error && leads.length > 0 && (
-              <Paper elevation={2}>
-                <TableContainer>
-                  <Table>
-                    <TableHead>
-                      <TableRow>
-                        <TableCell padding="checkbox">
-                          <Checkbox
-                            checked={selectedLeads.length === leads.length && leads.length > 0}
-                            indeterminate={selectedLeads.length > 0 && selectedLeads.length < leads.length}
-                            onChange={handleSelectAll}
-                          />
-                        </TableCell>
-                        <TableCell>Nombre</TableCell>
-                        <TableCell>Celular</TableCell>
-                        <TableCell>Ubicación</TableCell>
-                        <TableCell>Medio de Captación</TableCell>
-                        <TableCell>Tipificación</TableCell>
-                        <TableCell>Asesor</TableCell>
-                        <TableCell>Última Actualización</TableCell>
-                        <TableCell align="right">Acciones</TableCell>
-                      </TableRow>
-                    </TableHead>
-                    <TableBody>
-                      {leads.map((lead) => (
-                        <TableRow key={lead.id} selected={selectedLeads.includes(lead.id)}>
-                          <TableCell padding="checkbox">
-                            <Checkbox
-                              checked={selectedLeads.includes(lead.id)}
-                              onChange={() => handleSelectOne(lead.id)}
-                            />
-                          </TableCell>
-                          <TableCell>{lead.nombre}</TableCell>
-                          <TableCell>{lead.celular}</TableCell>
-                          <TableCell>{lead.ubicacion || 'N/A'}</TableCell>
-                          <TableCell>{lead.medio || 'N/A'}</TableCell>
-                          <TableCell>{lead.tipificacion}</TableCell>
-                          <TableCell>{lead.asesor ? lead.asesor.username : 'N/A'}</TableCell>
-                          <TableCell>{new Date(lead.ultima_actualizacion).toLocaleString()}</TableCell>
-                          <TableCell align="right">
-                            <Tooltip title="Ver Detalles">
-                              <IconButton onClick={() => navigate(`/leads/${lead.id}`)}>
-                                <ViewIcon color="info" />
-                              </IconButton>
-                            </Tooltip>
-                            <Tooltip title="Editar Lead">
-                              <IconButton onClick={() => handleOpenEditLeadModal(lead.id)}>
-                                <EditIcon color="warning" />
-                              </IconButton>
-                            </Tooltip>
-                            <Tooltip title="Eliminar Lead">
-                              <IconButton onClick={() => handleDeleteLead(lead.id)}>
-                                <DeleteIcon color="error" />
-                              </IconButton>
-                            </Tooltip>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </TableContainer>
-                <TablePagination
-                  component="div"
-                  count={totalLeads}
-                  page={page}
-                  onPageChange={handleChangePage}
-                  rowsPerPage={rowsPerPage}
-                  onRowsPerPageChange={handleChangeRowsPerPage}
-                  labelRowsPerPage="Filas por página:"
-                  labelDisplayedRows={({ from, to, count }) => `${from}-${to} de ${count}`}
-                />
-              </Paper>
-            )}
-            <Button
-              variant="contained"
-              color="secondary"
-              disabled={selectedLeads.length === 0}
-              onClick={handleOpenReassignModal}
-              sx={{ mt: 2 }}
-            >
-              Reasignar seleccionados
-            </Button>
-            <LeadFormModal
-              open={openLeadFormModal}
-              onClose={handleCloseLeadFormModal}
-              leadId={editingLeadId}
-              onSaveSuccess={handleLeadSaveSuccess}
-              isOPCContext={false}
-            />
-    </Box> {/* Cierre del <Box sx={{ p: 3 }}> principal */}
-
-<Dialog open={openReassignModal} onClose={handleCloseReassignModal} fullWidth maxWidth="xs">
-  <DialogTitle>Reasignar Leads Seleccionados</DialogTitle>
-  <DialogContent>
-    <Box sx={{ paddingTop: 1 }}>
-      {reassignError && <Alert severity="error" sx={{ mb: 2 }}>{reassignError}</Alert>}
-      {reassignSuccess && <Alert severity="success" sx={{ mb: 2 }}>{reassignSuccess}</Alert>}
-      
-      <Autocomplete
-        options={asesores}
-        loading={reassignLoading}
-        value={newAsesor}
-        getOptionLabel={(option) => `${option.first_name} ${option.last_name}`.trim() || ''}
-        isOptionEqualToValue={(option, value) => option.id === value.id}
-        onInputChange={(_, newInputValue) => {
-          setNewAsesor(newInputValue);
-        }}
-        onChange={(_, value) => setNewAsesor(value)}
-        renderInput={params => (
-          <TextField 
-            {...params} 
-            label="Buscar Nuevo Asesor" 
-            margin="normal" 
-            InputProps={{
-              ...params.InputProps,
-              endAdornment: (
-                <>
-                  {reassignLoading ? <CircularProgress color="inherit" size={20} /> : null}
-                  {params.InputProps.endAdornment}
-                </>
-              ),
-            }}
-          />
+        {!loading && !error && leads.length === 0 && (
+          <Typography variant="body1" align="center" sx={{ mt: 3 }}>
+            No se encontraron leads.
+          </Typography>
         )}
-      />
-    </Box>
-  </DialogContent>
-  <DialogActions>
-    <Button onClick={handleCloseReassignModal} color="secondary">Cancelar</Button>
-    <Button 
-      onClick={handleReassign} 
-      color="primary" 
-      variant="contained" 
-      disabled={reassignLoading || !newAsesor}
-    >
-      {reassignLoading ? <CircularProgress size={20} /> : 'Reasignar'}
-    </Button>
-  </DialogActions>
-</Dialog>
-</>
-);
+
+        {!loading && !error && leads.length > 0 && (
+          <Paper elevation={2} sx={{ width: '100%', maxWidth: '100%', overflowX: 'auto', boxSizing: 'border-box', mt: 2 }}>
+            <TableContainer>
+              <Table>
+                <TableHead>
+                  <TableRow sx={{ backgroundColor: '#1A3578' }}>
+                    <TableCell padding="checkbox"></TableCell>
+                    <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Nombre</TableCell>
+                    <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Celular</TableCell>
+                    <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Ubicación</TableCell>
+                    <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Medio de Captación</TableCell>
+                    <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Tipificación</TableCell>
+                    <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Asesor</TableCell>
+                    <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Última Actualización</TableCell>
+                    <TableCell align="right" sx={{ color: 'white', fontWeight: 'bold' }}>Acciones</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {leads.map((lead) => (
+                    <TableRow key={lead.id} hover selected={selectedLeads.includes(lead.id)}>
+                      <TableCell padding="checkbox">
+                        <Checkbox
+                          checked={selectedLeads.includes(lead.id)}
+                          onChange={() => handleSelectOne(lead.id)}
+                        />
+                      </TableCell>
+                      <TableCell>{lead.nombre}</TableCell>
+                      <TableCell>{lead.celular}</TableCell>
+                      <TableCell>{lead.ubicacion || 'N/A'}</TableCell>
+                      <TableCell>{lead.medio || 'N/A'}</TableCell>
+                      <TableCell>
+                        {lead.tipificacion ? (
+                          <Chip
+                            label={lead.tipificacion}
+                            size="small"
+                            color={lead.tipificacion.includes('CITA') ? 'success' : lead.tipificacion === 'NO CONTESTA' ? 'warning' : lead.tipificacion === 'DATO FALSO' ? 'error' : 'default'}
+                            variant="filled"
+                            sx={{ fontWeight: 'bold', color: 'white', backgroundColor:
+                              lead.tipificacion.includes('CITA') ? '#388e3c' :
+                              lead.tipificacion === 'NO CONTESTA' ? '#fbc02d' :
+                              lead.tipificacion === 'DATO FALSO' ? '#d32f2f' :
+                              lead.tipificacion === 'SEGUIMIENTO' ? '#1976d2' :
+                              '#757575'
+                            }}
+                          />
+                        ) : (
+                          <Typography variant="body2" color="textSecondary">
+                            Sin tipificar
+                          </Typography>
+                        )}
+                      </TableCell>
+                      <TableCell>{lead.asesor ? lead.asesor.username : 'N/A'}</TableCell>
+                      <TableCell>{new Date(lead.ultima_actualizacion).toLocaleString()}</TableCell>
+                      <TableCell align="right">
+                        <Tooltip title="Ver Detalles">
+                          <IconButton onClick={() => navigate(`/leads/${lead.id}`)}>
+                            <ViewIcon color="info" />
+                          </IconButton>
+                        </Tooltip>
+                        <Tooltip title="Editar Lead">
+                          <IconButton onClick={() => handleOpenEditLeadModal(lead.id)}>
+                            <EditIcon color="warning" />
+                          </IconButton>
+                        </Tooltip>
+                        <Tooltip title="Eliminar Lead">
+                          <IconButton onClick={() => handleDeleteLead(lead.id)}>
+                            <DeleteIcon color="error" />
+                          </IconButton>
+                        </Tooltip>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </TableContainer>
+            <TablePagination
+              component="div"
+              count={totalLeads}
+              page={page}
+              onPageChange={handleChangePage}
+              rowsPerPage={rowsPerPage}
+              onRowsPerPageChange={handleChangeRowsPerPage}
+              labelRowsPerPage="Filas por página:"
+              labelDisplayedRows={({ from, to, count }) => `${from}-${to} de ${count}`}
+            />
+          </Paper>
+        )}
+        <Button
+          variant="contained"
+          color="secondary"
+          disabled={selectedLeads.length === 0}
+          onClick={handleOpenReassignModal}
+          sx={{ mt: 2 }}
+        >
+          Reasignar seleccionados
+        </Button>
+        <LeadFormModal
+          open={openLeadFormModal}
+          onClose={handleCloseLeadFormModal}
+          leadId={editingLeadId}
+          onSaveSuccess={handleLeadSaveSuccess}
+          isOPCContext={false}
+        />
+      </Box>
+
+      <Dialog open={openReassignModal} onClose={handleCloseReassignModal} fullWidth maxWidth="xs">
+        <DialogTitle>Reasignar Leads Seleccionados</DialogTitle>
+        <DialogContent>
+          <Box sx={{ paddingTop: 1 }}>
+            {reassignError && <Alert severity="error" sx={{ mb: 2 }}>{reassignError}</Alert>}
+            {reassignSuccess && <Alert severity="success" sx={{ mb: 2 }}>{reassignSuccess}</Alert>}
+            
+            <Autocomplete
+              options={asesores}
+              loading={reassignLoading}
+              value={newAsesor}
+              getOptionLabel={(option) => `${option.first_name} ${option.last_name}`.trim() || ''}
+              isOptionEqualToValue={(option, value) => option.id === value.id}
+              onInputChange={(_, newInputValue) => {
+                setNewAsesor(newInputValue);
+              }}
+              onChange={(_, value) => setNewAsesor(value)}
+              renderInput={params => (
+                <TextField 
+                  {...params} 
+                  label="Buscar Nuevo Asesor" 
+                  margin="normal" 
+                  InputProps={{
+                    ...params.InputProps,
+                    endAdornment: (
+                      <>
+                        {reassignLoading ? <CircularProgress color="inherit" size={20} /> : null}
+                        {params.InputProps.endAdornment}
+                      </>
+                    ),
+                  }}
+                />
+              )}
+            />
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCloseReassignModal} color="secondary">Cancelar</Button>
+          <Button 
+            onClick={handleReassign} 
+            color="primary" 
+            variant="contained" 
+            disabled={reassignLoading || !newAsesor}
+          >
+            {reassignLoading ? <CircularProgress size={20} /> : 'Reasignar'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+    </>
+  );
 }
 
 export default LeadsPage;

@@ -22,6 +22,14 @@ class User(AbstractUser):
         related_query_name="leads_user_permission",
     )
 
+    ROL_CHOICES = [
+        ('OPERADOR', 'Operador'),
+        ('ASESOR_PRESENCIAL', 'Asesor Presencial'),
+        ('OPC', 'Personal OPC'),
+        # Futuro: ('MULTI', 'Operador/OPC/Asesor Presencial')
+    ]
+    rol = models.CharField(max_length=30, choices=ROL_CHOICES, default='OPERADOR', help_text='Rol principal del usuario en el CRM')
+
     def __str__(self):
         return self.username
 
@@ -124,6 +132,8 @@ class Lead(models.Model):
         ('OASIS 1,2 y 3', 'OASIS 1,2 y 3'),
     ]
     proyecto_interes = models.CharField(max_length=50, choices=PROYECTO_INTERES_CHOICES, blank=True, null=True)
+
+    es_directeo = models.BooleanField(default=False, help_text='Indica si el lead fue captado y gestionado completamente por OPC (directeo)')
 
     def save(self, *args, **kwargs):
         # Auto-marcar como lead OPC si tiene personal OPC asignado

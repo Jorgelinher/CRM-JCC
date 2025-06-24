@@ -79,6 +79,8 @@ function OPCLeadsPage() {
   const [filterSupervisorOPC, setFilterSupervisorOPC] = useState('');
   const [filterFechaCaptacionDesde, setFilterFechaCaptacionDesde] = useState('');
   const [filterFechaCaptacionHasta, setFilterFechaCaptacionHasta] = useState('');
+  const [filterTipificacion, setFilterTipificacion] = useState('');
+  const [filterOPC, setFilterOPC] = useState('');
 
   const [opcPersonnelList, setOpcPersonnelList] = useState([]);
   const [opcSupervisorsList, setOpcSupervisorsList] = useState([]);
@@ -102,28 +104,25 @@ function OPCLeadsPage() {
         page: page + 1,
         page_size: rowsPerPage,
         search: searchTerm,
-        personal_opc_captador: filterPersonalOPC || undefined,
-        supervisor_opc_captador: filterSupervisorOPC || undefined,
-        'fecha_captacion_after': filterFechaCaptacionDesde || undefined,
-        'fecha_captacion_before': filterFechaCaptacionHasta || undefined,
-        is_opc_lead: true, // FILTRO CLAVE: Mostrar solo leads OPC
-        ordering: '-fecha_captacion',
+        tipificacion: filterTipificacion,
+        personal_opc_captador: filterOPC,
+        'fecha_creacion_after': filterFechaCaptacionDesde,
+        'fecha_creacion_before': filterFechaCaptacionHasta,
+        ordering: '-fecha_creacion',
+        // Mostrar todos los leads OPC y directeos
+        es_opc_lead: true,
       };
-      console.log("OPCLeadsPage: Parámetros de filtro enviados:", params);
-
       const response = await leadsService.getLeads(params);
       setLeads(response.results || []);
       setTotalLeads(response.count || 0);
-
     } catch (err) {
       setError('Error al cargar los leads OPC.');
-      console.error('Error fetching OPC leads:', err.response?.data || err);
       setLeads([]);
       setTotalLeads(0);
     } finally {
       setLoading(false);
     }
-  }, [page, rowsPerPage, searchTerm, filterPersonalOPC, filterSupervisorOPC, filterFechaCaptacionDesde, filterFechaCaptacionHasta]);
+  }, [page, rowsPerPage, searchTerm, filterTipificacion, filterOPC, filterFechaCaptacionDesde, filterFechaCaptacionHasta]);
 
   const fetchMetrics = useCallback(async () => {
     setMetricsLoading(true);
@@ -244,7 +243,7 @@ function OPCLeadsPage() {
   };
 
   return (
-    <Box sx={{ p: 3 }}>
+    <Box sx={{ p: { xs: 1, sm: 2, md: 3 }, width: '100%', maxWidth: '1400px', margin: '0 auto' }}>
       <Typography variant="h4" gutterBottom>
         Gestión de Leads OPC
       </Typography>
@@ -256,53 +255,53 @@ function OPCLeadsPage() {
             <AssessmentIcon />
             Métricas de Leads OPC
           </Typography>
-          <Grid container spacing={3}>
+          <Grid container spacing={3} sx={{ width: '100%', margin: 0 }}>
             <Grid item xs={12} sm={6} md={3}>
-              <Card sx={{ height: '100%', textAlign: 'center' }}>
+              <Card sx={{ height: '100%', textAlign: 'center', backgroundColor: '#1A3578', color: 'white' }}>
                 <CardContent sx={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', height: '100%' }}>
-                  <Typography color="text.secondary" gutterBottom>
+                  <Typography sx={{ color: 'white', fontWeight: 'bold' }} gutterBottom>
                     Total Leads OPC
                   </Typography>
-                  <Typography variant="h4" component="div" sx={{ fontWeight: 'bold' }}>
+                  <Typography variant="h4" component="div" sx={{ fontWeight: 'bold', color: 'white' }}>
                     {metrics.total_leads_opc}
                   </Typography>
                 </CardContent>
               </Card>
             </Grid>
             <Grid item xs={12} sm={6} md={3}>
-              <Card sx={{ height: '100%', textAlign: 'center' }}>
+              <Card sx={{ height: '100%', textAlign: 'center', backgroundColor: '#388e3c', color: 'white' }}>
                 <CardContent sx={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', height: '100%' }}>
-                  <Typography color="text.secondary" gutterBottom>
+                  <Typography sx={{ color: 'white', fontWeight: 'bold' }} gutterBottom>
                     Asignados
                   </Typography>
-                  <Typography variant="h4" component="div" sx={{ fontWeight: 'bold', color: 'success.main' }}>
+                  <Typography variant="h4" component="div" sx={{ fontWeight: 'bold', color: 'white' }}>
                     {metrics.leads_asignados}
                   </Typography>
-                  <Typography variant="body2" color="text.secondary">
+                  <Typography variant="body2" sx={{ color: 'white' }}>
                     {metrics.porcentaje_asignacion.toFixed(1)}% del total
                   </Typography>
                 </CardContent>
               </Card>
             </Grid>
             <Grid item xs={12} sm={6} md={3}>
-              <Card sx={{ height: '100%', textAlign: 'center' }}>
+              <Card sx={{ height: '100%', textAlign: 'center', backgroundColor: '#1976d2', color: 'white' }}>
                 <CardContent sx={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', height: '100%' }}>
-                  <Typography color="text.secondary" gutterBottom>
+                  <Typography sx={{ color: 'white', fontWeight: 'bold' }} gutterBottom>
                     Sin Asignar
                   </Typography>
-                  <Typography variant="h4" component="div" sx={{ fontWeight: 'bold', color: 'warning.main' }}>
+                  <Typography variant="h4" component="div" sx={{ fontWeight: 'bold', color: 'white' }}>
                     {metrics.leads_sin_asignar}
                   </Typography>
                 </CardContent>
               </Card>
             </Grid>
             <Grid item xs={12} sm={6} md={3}>
-              <Card sx={{ height: '100%', textAlign: 'center' }}>
+              <Card sx={{ height: '100%', textAlign: 'center', backgroundColor: '#757575', color: 'white' }}>
                 <CardContent sx={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', height: '100%' }}>
-                  <Typography color="text.secondary" gutterBottom>
+                  <Typography sx={{ color: 'white', fontWeight: 'bold' }} gutterBottom>
                     Captados (últimos 30d)
                   </Typography>
-                  <Typography variant="h4" component="div" sx={{ fontWeight: 'bold', color: 'info.main' }}>
+                  <Typography variant="h4" component="div" sx={{ fontWeight: 'bold', color: 'white' }}>
                     {metrics.leads_ultimos_30_dias}
                   </Typography>
                 </CardContent>
@@ -313,11 +312,8 @@ function OPCLeadsPage() {
       )}
 
       {/* Filtros */}
-      <Paper sx={{ p: 2, mb: 2 }}>
-        <Typography variant="h6" gutterBottom>
-          Filtros
-        </Typography>
-        <Grid container spacing={2} alignItems="center">
+      <Paper elevation={2} sx={{ width: '100%', maxWidth: '100%', overflowX: 'auto', boxSizing: 'border-box', p: 2, mb: 3, backgroundColor: 'white', boxShadow: 2 }}>
+        <Grid container spacing={2} alignItems="center" sx={{ width: '100%', margin: 0, boxSizing: 'border-box' }}>
           <Grid item xs={12} sm={6} md={3}>
             <TextField
               fullWidth
@@ -404,201 +400,175 @@ function OPCLeadsPage() {
               Limpiar
             </Button>
           </Grid>
+          <Grid item xs={12} sm={6} md={2} sx={{ ml: 'auto' }}>
+            <Button
+              variant="contained"
+              onClick={handleOpenNewLeadModal}
+              startIcon={<AddIcon />}
+              fullWidth
+            >
+              Nuevo Lead OPC
+            </Button>
+          </Grid>
         </Grid>
       </Paper>
 
-      {/* Botones de acción */}
-      <Box sx={{ mb: 2, display: 'flex', gap: 1 }}>
-        <Button
-          variant="contained"
-          onClick={handleOpenNewLeadModal}
-          startIcon={<AddIcon />}
-        >
-          Nuevo Lead OPC
-        </Button>
-      </Box>
-
       {/* Tabla de leads */}
-      <Paper>
-        {loading ? (
-          <Box sx={{ display: 'flex', justifyContent: 'center', p: 3 }}>
-            <CircularProgress />
-          </Box>
-        ) : error ? (
-          <Alert severity="error" sx={{ m: 2 }}>{error}</Alert>
-        ) : (
-          <>
-            <TableContainer>
-              <Table>
-                <TableHead>
-                  <TableRow>
-                    <TableCell>Nombre</TableCell>
-                    <TableCell>Celular</TableCell>
-                    <TableCell>Personal OPC</TableCell>
-                    <TableCell>Supervisor OPC</TableCell>
-                    <TableCell>Fecha Captación</TableCell>
-                    <TableCell>Asesor Asignado</TableCell>
-                    <TableCell>Tipificación Asesor</TableCell>
-                    <TableCell>Proyecto Interés</TableCell>
-                    <TableCell>Medio</TableCell>
-                    <TableCell>Acciones</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {leads.map((lead) => (
-                    <TableRow key={lead.id} hover>
-                      <TableCell>
+      <Paper elevation={2} sx={{ width: '100%', maxWidth: '100%', overflowX: 'auto', boxSizing: 'border-box', mt: 2 }}>
+        <TableContainer sx={{ width: '100%' }}>
+          <Table sx={{ width: '100%' }}>
+            <TableHead>
+              <TableRow sx={{ backgroundColor: '#1A3578' }}>
+                <TableCell>Nombre</TableCell>
+                <TableCell>Celular</TableCell>
+                <TableCell>Personal OPC</TableCell>
+                <TableCell>Supervisor OPC</TableCell>
+                <TableCell>Fecha Captación</TableCell>
+                <TableCell>Asesor Asignado</TableCell>
+                <TableCell sx={{ whiteSpace: 'nowrap', maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis' }}>Tipificación Asesor</TableCell>
+                <TableCell sx={{ whiteSpace: 'nowrap', maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis' }}>Medio</TableCell>
+                <TableCell>Acciones</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {leads.map((lead) => (
+                <TableRow key={lead.id} hover>
+                  <TableCell>
+                    <Typography variant="body2" fontWeight="medium">
+                      {lead.nombre}
+                    </Typography>
+                  </TableCell>
+                  <TableCell>{lead.celular}</TableCell>
+                  <TableCell>
+                    {lead.personal_opc_captador_details ? (
+                      <Box>
                         <Typography variant="body2" fontWeight="medium">
-                          {lead.nombre}
+                          {lead.personal_opc_captador_details.nombre}
                         </Typography>
-                      </TableCell>
-                      <TableCell>{lead.celular}</TableCell>
-                      <TableCell>
-                        {lead.personal_opc_captador_details ? (
-                          <Box>
-                            <Typography variant="body2" fontWeight="medium">
-                              {lead.personal_opc_captador_details.nombre}
-                            </Typography>
-                            <Chip 
-                              label={lead.personal_opc_captador_details.rol} 
-                              size="small" 
-                              color="primary" 
-                              variant="outlined"
-                            />
-                          </Box>
-                        ) : (
-                          <Typography variant="body2" color="textSecondary">
-                            No asignado
-                          </Typography>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        {lead.supervisor_opc_captador_details ? (
-                          <Typography variant="body2">
-                            {lead.supervisor_opc_captador_details.nombre}
-                          </Typography>
-                        ) : (
-                          <Typography variant="body2" color="textSecondary">
-                            No asignado
-                          </Typography>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        {lead.fecha_captacion ? (
-                          new Date(lead.fecha_captacion).toLocaleDateString('es-ES')
-                        ) : (
-                          <Typography variant="body2" color="textSecondary">
-                            No especificada
-                          </Typography>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        {lead.asesor_details ? (
-                          <Box>
-                            <Typography variant="body2" fontWeight="medium">
-                              {lead.asesor_details.first_name} {lead.asesor_details.last_name}
-                            </Typography>
-                            <Typography variant="caption" color="textSecondary">
-                              @{lead.asesor_details.username}
-                            </Typography>
-                          </Box>
-                        ) : (
-                          <Chip 
-                            label="Sin asignar" 
-                            size="small" 
-                            color="warning" 
-                            variant="outlined"
-                          />
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        {lead.tipificacion ? (
-                          <Chip 
-                            label={lead.tipificacion} 
-                            size="small" 
-                            color={getTipificacionColor(lead.tipificacion)}
-                            variant="filled"
-                          />
-                        ) : (
-                          <Typography variant="body2" color="textSecondary">
-                            Sin tipificar
-                          </Typography>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        {lead.proyecto_interes ? (
-                          <Chip 
-                            label={lead.proyecto_interes} 
-                            size="small" 
-                            color="info" 
-                            variant="outlined"
-                          />
-                        ) : (
-                          <Typography variant="body2" color="textSecondary">
-                            No especificado
-                          </Typography>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        {lead.medio ? (
-                          <Typography variant="body2">
-                            {lead.medio}
-                          </Typography>
-                        ) : (
-                          <Typography variant="body2" color="textSecondary">
-                            No especificado
-                          </Typography>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        <Box sx={{ display: 'flex', gap: 0.5 }}>
-                          <Tooltip title="Ver detalles">
-                            <IconButton
-                              size="small"
-                              onClick={() => handleViewLeadDetail(lead.id)}
-                              color="primary"
-                            >
-                              <ViewIcon />
-                            </IconButton>
-                          </Tooltip>
-                          <Tooltip title="Editar">
-                            <IconButton
-                              size="small"
-                              onClick={() => handleOpenEditLeadModal(lead.id)}
-                              color="warning"
-                            >
-                              <EditIcon />
-                            </IconButton>
-                          </Tooltip>
-                          <Tooltip title="Eliminar">
-                            <IconButton
-                              size="small"
-                              onClick={() => handleDeleteLead(lead.id)}
-                              color="error"
-                            >
-                              <DeleteIcon />
-                            </IconButton>
-                          </Tooltip>
-                        </Box>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </TableContainer>
-            
-            <TablePagination
-              component="div"
-              count={totalLeads}
-              page={page}
-              onPageChange={handleChangePage}
-              rowsPerPage={rowsPerPage}
-              onRowsPerPageChange={handleChangeRowsPerPage}
-              labelRowsPerPage="Filas por página:"
-              labelDisplayedRows={({ from, to, count }) => `${from}-${to} de ${count}`}
-            />
-          </>
-        )}
+                        <Chip 
+                          label={lead.personal_opc_captador_details.rol} 
+                          size="small" 
+                          color="primary" 
+                          variant="outlined"
+                        />
+                      </Box>
+                    ) : (
+                      <Typography variant="body2" color="textSecondary">
+                        No asignado
+                      </Typography>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    {lead.supervisor_opc_captador_details ? (
+                      <Typography variant="body2">
+                        {lead.supervisor_opc_captador_details.nombre}
+                      </Typography>
+                    ) : (
+                      <Typography variant="body2" color="textSecondary">
+                        No asignado
+                      </Typography>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    {lead.fecha_captacion ? (
+                      new Date(lead.fecha_captacion).toLocaleDateString('es-ES')
+                    ) : (
+                      <Typography variant="body2" color="textSecondary">
+                        No especificada
+                      </Typography>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    {lead.asesor_details ? (
+                      <Box>
+                        <Typography variant="body2" fontWeight="medium">
+                          {lead.asesor_details.first_name} {lead.asesor_details.last_name}
+                        </Typography>
+                        <Typography variant="caption" color="textSecondary">
+                          @{lead.asesor_details.username}
+                        </Typography>
+                      </Box>
+                    ) : (
+                      <Chip 
+                        label="Sin asignar" 
+                        size="small" 
+                        color="warning" 
+                        variant="outlined"
+                      />
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    {lead.tipificacion ? (
+                      <Chip
+                        label={lead.tipificacion}
+                        size="small"
+                        color={getTipificacionColor(lead.tipificacion)}
+                        variant="filled"
+                        sx={{ fontWeight: 'bold', color: 'white', backgroundColor: lead.tipificacion.includes('CITA') ? '#388e3c' : getTipificacionColor(lead.tipificacion) === 'default' ? '#757575' : undefined }}
+                      />
+                    ) : (
+                      <Typography variant="body2" color="textSecondary">
+                        Sin tipificar
+                      </Typography>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    {lead.medio ? (
+                      <Typography variant="body2">
+                        {lead.medio}
+                      </Typography>
+                    ) : (
+                      <Typography variant="body2" color="textSecondary">
+                        No especificado
+                      </Typography>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    <Box sx={{ display: 'flex', gap: 0.5 }}>
+                      <Tooltip title="Ver detalles">
+                        <IconButton
+                          size="small"
+                          onClick={() => handleViewLeadDetail(lead.id)}
+                          color="primary"
+                        >
+                          <ViewIcon />
+                        </IconButton>
+                      </Tooltip>
+                      <Tooltip title="Editar">
+                        <IconButton
+                          size="small"
+                          onClick={() => handleOpenEditLeadModal(lead.id)}
+                          color="warning"
+                        >
+                          <EditIcon />
+                        </IconButton>
+                      </Tooltip>
+                      <Tooltip title="Eliminar">
+                        <IconButton
+                          size="small"
+                          onClick={() => handleDeleteLead(lead.id)}
+                          color="error"
+                        >
+                          <DeleteIcon />
+                        </IconButton>
+                      </Tooltip>
+                    </Box>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </TableContainer>
+        <TablePagination
+          component="div"
+          count={totalLeads}
+          page={page}
+          onPageChange={handleChangePage}
+          rowsPerPage={rowsPerPage}
+          onRowsPerPageChange={handleChangeRowsPerPage}
+          labelRowsPerPage="Filas por página:"
+          labelDisplayedRows={({ from, to, count }) => `${from}-${to} de ${count}`}
+        />
       </Paper>
 
       {/* Modal para crear/editar lead */}

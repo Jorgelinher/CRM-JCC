@@ -33,7 +33,8 @@ function AppointmentFormModal({ open, onClose, appointmentData, leadId, onSaveSu
     const [submitting, setSubmitting] = useState(false);
     const [error, setError] = useState('');
     const [leads, setLeads] = useState([]);
-    const [asesores, setAsesores] = useState([]);
+    const [operators, setOperators] = useState([]);
+    const [presentialAdvisors, setPresentialAdvisors] = useState([]);
     const [opcPersonnelList, setOpcPersonnelList] = useState([]);
     const [asesorLoading, setAsesorLoading] = useState(false);
     const [asesorOptions, setAsesorOptions] = useState([]);
@@ -44,6 +45,7 @@ function AppointmentFormModal({ open, onClose, appointmentData, leadId, onSaveSu
     const [opcLoading, setOpcLoading] = useState(false);
     const [opcOptions, setOpcOptions] = useState([]);
     const [opcInput, setOpcInput] = useState('');
+    const [leadInfo, setLeadInfo] = useState(null);
 
     const [formValues, setFormValues] = useState({
         lead_id: '',
@@ -59,13 +61,15 @@ function AppointmentFormModal({ open, onClose, appointmentData, leadId, onSaveSu
 
     const fetchSelectionsData = useCallback(async () => {
         try {
-            const [leadsData, asesoresData, opcData] = await Promise.all([
+            const [leadsData, operatorsData, presentialData, opcData] = await Promise.all([
                 leadsService.getLeads({ page_size: 1000, ordering: 'nombre' }),
-                leadsService.getUsers({ page_size: 1000, ordering: 'username' }),
+                leadsService.getOperators({ page_size: 1000, ordering: 'username' }),
+                leadsService.getPresentialAdvisors({ page_size: 1000, ordering: 'username' }),
                 opcPersonnelService.getPersonnel({ page_size: 1000 }),
             ]);
             setLeads(leadsData.results || []);
-            setAsesores(asesoresData.results || []);
+            setOperators(operatorsData.results || []);
+            setPresentialAdvisors(presentialData.results || []);
             setOpcPersonnelList(opcData.results || []);
         } catch (err) {
             setError('Error al cargar datos para el formulario de citas.');
@@ -192,6 +196,16 @@ function AppointmentFormModal({ open, onClose, appointmentData, leadId, onSaveSu
         };
     }, [opcInput]);
 
+    // Obtener info del lead si leadId está presente
+    useEffect(() => {
+        if ((leadId || formValues.lead_id) && !appointmentData) {
+            const id = leadId || formValues.lead_id;
+            leadsService.getLeadById(id).then(setLeadInfo).catch(() => setLeadInfo(null));
+        } else if (appointmentData && appointmentData.lead) {
+            setLeadInfo(appointmentData.lead);
+        }
+    }, [leadId, formValues.lead_id, appointmentData]);
+
     const handleChange = (e) => {
         const { name, value } = e.target;
         setFormValues(prev => ({ ...prev, [name]: value }));
@@ -204,7 +218,7 @@ function AppointmentFormModal({ open, onClose, appointmentData, leadId, onSaveSu
         if (!formValues.fecha_hora) errors.fecha_hora = 'La fecha y hora son requeridas.';
         if (!formValues.lugar) errors.lugar = 'El lugar es requerido.';
         if (!formValues.asesor_comercial_id && !formValues.asesor_presencial_id && !formValues.opc_personal_atendio_id) {
-            errors.atencion = 'Debe asignar al menos un Asesor Comercial, Presencial o Personal OPC de atención.';
+            errors.atencion = 'Debe asignar al menos un Operador o Personal OPC de atención.';
         }
         setFormErrors(errors);
         return Object.keys(errors).length === 0;
@@ -212,14 +226,17 @@ function AppointmentFormModal({ open, onClose, appointmentData, leadId, onSaveSu
 
     const handleSubmit = async () => {
         if (!validateForm()) return;
-
         setSubmitting(true);
         setError('');
-
         try {
+            let asesorComercialId = formValues.asesor_comercial_id;
+            // Si no se seleccionó asesor comercial ni presencial, pero el lead tiene asesor asignado, usarlo
+            if (!asesorComercialId && !formValues.asesor_presencial_id && leadInfo && leadInfo.asesor) {
+                asesorComercialId = leadInfo.asesor.id;
+            }
             const finalPayload = {
                 lead_id: Number(formValues.lead_id),
-                asesor_comercial_id: formValues.asesor_comercial_id ? Number(formValues.asesor_comercial_id) : null,
+                asesor_comercial_id: asesorComercialId ? Number(asesorComercialId) : null,
                 asesor_presencial_id: formValues.asesor_presencial_id ? Number(formValues.asesor_presencial_id) : null,
                 opc_personal_atendio_id: formValues.opc_personal_atendio_id ? Number(formValues.opc_personal_atendio_id) : null,
                 fecha_hora: moment(formValues.fecha_hora).toISOString(),
@@ -227,7 +244,6 @@ function AppointmentFormModal({ open, onClose, appointmentData, leadId, onSaveSu
                 estado: formValues.estado,
                 observaciones: formValues.observaciones,
             };
-
             if (appointmentData) {
                 await appointmentsService.updateAppointment(appointmentData.id, finalPayload);
             } else {
@@ -277,7 +293,7 @@ function AppointmentFormModal({ open, onClose, appointmentData, leadId, onSaveSu
                                     options={leadOptions}
                                     getOptionLabel={(option) => option.nombre ? `${option.nombre} (${option.celular || ''})` : ''}
                                     loading={leadLoading}
-                                    value={leadOptions.find(opt => opt.id === formValues.lead_id) || null}
+                                    value={leadOptions.find(opt => opt.id === formValues.lead_id) || leadInfo || null}
                                     onChange={(_, newValue) => {
                                         setFormValues(prev => ({ ...prev, lead_id: newValue ? newValue.id : '' }));
                                         setFormErrors(prev => ({ ...prev, lead_id: '' }));
@@ -341,10 +357,10 @@ function AppointmentFormModal({ open, onClose, appointmentData, leadId, onSaveSu
                             <Grid item xs={12} sm={6}>
                                 <Autocomplete
                                     fullWidth
-                                    options={asesorOptions}
+                                    options={operators}
                                     getOptionLabel={(option) => option.username || ''}
                                     loading={asesorLoading}
-                                    value={asesorOptions.find(opt => opt.id === formValues.asesor_comercial_id) || null}
+                                    value={operators.find(opt => opt.id === formValues.asesor_comercial_id) || null}
                                     onChange={(_, newValue) => {
                                         setFormValues(prev => ({ ...prev, asesor_comercial_id: newValue ? newValue.id : '' }));
                                         setFormErrors(prev => ({ ...prev, asesor_comercial_id: '' }));
@@ -353,8 +369,9 @@ function AppointmentFormModal({ open, onClose, appointmentData, leadId, onSaveSu
                                     renderInput={(params) => (
                                         <TextField
                                             {...params}
-                                            label="Asesor Comercial"
+                                            label="Operador"
                                             margin="normal"
+                                            helperText="Selecciona el operador responsable de la gestión."
                                             InputProps={{
                                                 ...params.InputProps,
                                                 endAdornment: (
@@ -372,10 +389,10 @@ function AppointmentFormModal({ open, onClose, appointmentData, leadId, onSaveSu
                             <Grid item xs={12} sm={6}>
                                 <Autocomplete
                                     fullWidth
-                                    options={asesorOptions}
+                                    options={presentialAdvisors}
                                     getOptionLabel={(option) => option.username || ''}
                                     loading={asesorLoading}
-                                    value={asesorOptions.find(opt => opt.id === formValues.asesor_presencial_id) || null}
+                                    value={presentialAdvisors.find(opt => opt.id === formValues.asesor_presencial_id) || null}
                                     onChange={(_, newValue) => {
                                         setFormValues(prev => ({ ...prev, asesor_presencial_id: newValue ? newValue.id : '' }));
                                         setFormErrors(prev => ({ ...prev, asesor_presencial_id: '' }));
@@ -386,6 +403,7 @@ function AppointmentFormModal({ open, onClose, appointmentData, leadId, onSaveSu
                                             {...params}
                                             label="Asesor Presencial"
                                             margin="normal"
+                                            helperText="Selecciona el asesor presencial que atenderá la cita."
                                             InputProps={{
                                                 ...params.InputProps,
                                                 endAdornment: (
@@ -412,7 +430,7 @@ function AppointmentFormModal({ open, onClose, appointmentData, leadId, onSaveSu
                                         setFormErrors(prev => ({ ...prev, opc_personal_atendio_id: '' }));
                                     }}
                                     onInputChange={(_, newInput) => setOpcInput(newInput)}
-                                    disabled={!!opcPersonnelId && opcPersonnelId === formValues.opc_personal_atendio_id}
+                                    disabled={leadInfo && !leadInfo.es_directeo}
                                     renderInput={(params) => (
                                         <TextField
                                             {...params}
