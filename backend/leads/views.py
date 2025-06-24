@@ -20,6 +20,7 @@ from .models import Lead, User, Action, Appointment, OPCPersonnel, LeadDuplicate
 from . import serializers
 from .serializers import LeadDuplicateSerializer
 from leads.models import User
+from .services import webhook_service
 
 
 class StandardResultsSetPagination(PageNumberPagination):
@@ -373,6 +374,17 @@ class AppointmentViewSet(viewsets.ModelViewSet):
         if not old_has_ever_been_confirmed and appointment.estado == 'Confirmada':
             appointment.has_ever_been_confirmed = True
             appointment.save(update_fields=['has_ever_been_confirmed'])
+        
+        # --- INTEGRACIÓN CON APP COMERCIAL ---
+        # Enviar webhook cuando la cita se marca como "Realizada"
+        if old_estado != 'Realizada' and appointment.estado == 'Realizada':
+            try:
+                webhook_service.send_presence_notification(appointment)
+            except Exception as e:
+                # Log del error pero no fallar la operación principal
+                import logging
+                logger = logging.getLogger(__name__)
+                logger.error(f"Error al enviar webhook para cita {appointment.id}: {str(e)}")
 
     def perform_destroy(self, instance):
         lead_id = instance.lead_id
@@ -707,3 +719,38 @@ class LeadDuplicateViewSet(viewsets.ModelViewSet):
         duplicado.estado = 'ignorado'
         duplicado.save()
         return Response({'message': 'Duplicado marcado como ignorado.'})
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def test_webhook_integration(request):
+    """
+    Endpoint para probar la integración con la app comercial.
+    Permite enviar un webhook de prueba con datos de ejemplo.
+    """
+    try:
+        # Buscar una cita reciente para usar como ejemplo
+        appointment = Appointment.objects.filter(estado='Realizada').order_by('-fecha_hora').first()
+        
+        if not appointment:
+            return Response({
+                'error': 'No se encontró ninguna cita realizada para usar como ejemplo.'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Enviar webhook de prueba
+        success = webhook_service.send_presence_notification(appointment)
+        
+        if success:
+            return Response({
+                'message': 'Webhook enviado exitosamente',
+                'appointment_id': appointment.id,
+                'lead_name': appointment.lead.nombre
+            })
+        else:
+            return Response({
+                'error': 'Error al enviar webhook. Revisar logs para más detalles.'
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            
+    except Exception as e:
+        return Response({
+            'error': f'Error inesperado: {str(e)}'
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

@@ -7,4 +7,4 @@ class LeadsConfig(AppConfig):
     def ready(self):
         # Importa tus señales aquí para que Django las descubra y las conecte
         # Esto asegura que las funciones de log_lead_changes y log_lead_deletion se activen.
-        import leads.signals
+        import leads.signals  # Importar signals para que se registren

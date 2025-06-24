@@ -12,6 +12,7 @@ https://docs.djangoproject.com/en/5.0/ref/settings/
 
 from pathlib import Path
 from datetime import timedelta # Añadir esta importación
+import os
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -202,3 +203,10 @@ SIMPLE_JWT = {
     'TOKEN_VERIFY_SERIALIZER': 'rest_framework_simplejwt.serializers.TokenVerifySerializer',
     'TOKEN_BLACKLIST_SERIALIZER': 'rest_framework_simplejwt.serializers.TokenBlacklistSerializer',
 }
+
+# --- CONFIGURACIÓN DE INTEGRACIÓN CON APP COMERCIAL ---
+# URL del endpoint webhook de la app comercial
+COMERCIAL_WEBHOOK_URL = os.environ.get('COMERCIAL_WEBHOOK_URL', 'http://localhost:8000/api/gestion/webhook-presencia-crm/')
+
+# Token de autenticación para el webhook (debe coincidir con CRM_WEBHOOK_TOKEN en la app comercial)
+COMERCIAL_WEBHOOK_TOKEN = os.environ.get('COMERCIAL_WEBHOOK_TOKEN', 'jcc-webhook-secret-token-2024')

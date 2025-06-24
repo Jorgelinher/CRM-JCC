@@ -3,6 +3,10 @@
 from django.db.models.signals import post_save, post_delete
 from django.dispatch import receiver
 from .models import Lead, Action, User, Appointment
+from .services import webhook_service
+import logging
+
+logger = logging.getLogger(__name__)
 
 _current_user = None
 
@@ -81,3 +85,45 @@ def log_appointment_deletion(sender, instance, **kwargs):
         tipo_accion='Cita Eliminada',
         detalle_accion=f'Cita (ID: {appointment_id}) con {lead_name} para el {appointment_fecha_hora} eliminada.'
     )
+
+@receiver(post_save, sender=Lead)
+def handle_lead_tipification_change(sender, instance, created, **kwargs):
+    """
+    Maneja cambios en la tipificación del lead que puedan requerir notificación a la app comercial.
+    """
+    if not created:  # Solo para actualizaciones
+        try:
+            # Si el lead se marca como "YA ASISTIO", buscar citas relacionadas y enviar webhook
+            if instance.tipificacion == 'YA ASISTIO':
+                # Buscar la cita más reciente del lead
+                latest_appointment = instance.appointments.order_by('-fecha_hora').first()
+                if latest_appointment and latest_appointment.estado != 'Realizada':
+                    # Marcar la cita como realizada
+                    latest_appointment.estado = 'Realizada'
+                    latest_appointment.save()
+                    
+                    # Enviar webhook
+                    try:
+                        webhook_service.send_presence_notification(latest_appointment)
+                    except Exception as e:
+                        logger.error(f"Error al enviar webhook para lead {instance.id}: {str(e)}")
+        except Exception as e:
+            logger.error(f"Error en signal de lead tipificación: {str(e)}")
+
+@receiver(post_save, sender=Appointment)
+def handle_appointment_status_change(sender, instance, created, **kwargs):
+    """
+    Maneja cambios en el estado de las citas para enviar webhooks.
+    """
+    if not created:  # Solo para actualizaciones
+        try:
+            # Si la cita se marca como "Realizada", enviar webhook
+            if instance.estado == 'Realizada':
+                # Verificar si ya se envió el webhook (evitar duplicados)
+                # Por simplicidad, siempre se envía. En producción se podría agregar un campo de control
+                try:
+                    webhook_service.send_presence_notification(instance)
+                except Exception as e:
+                    logger.error(f"Error al enviar webhook para cita {instance.id}: {str(e)}")
+        except Exception as e:
+            logger.error(f"Error en signal de appointment: {str(e)}")
